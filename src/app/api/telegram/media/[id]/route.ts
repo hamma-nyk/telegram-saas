@@ -58,7 +58,8 @@ export async function GET(
       const doc = (msg.media as any).document;
       const photo = (msg.media as any).photo;
       const mimeType = doc?.mimeType || "image/jpeg";
-      const fileSize = doc?.size?.toNumber() || photo?.sizes?.at(-1)?.size || 0;
+      const fileSize =
+        doc?.size?.toJSNumber() || photo?.sizes?.at(-1)?.size || 0;
 
       // Strategi: Jika file < 5MB, gunakan downloadMedia biasa agar tidak ribet di Vercel
       // Jika > 5MB, gunakan iterDownload
