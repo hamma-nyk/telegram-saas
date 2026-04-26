@@ -94,7 +94,8 @@ export async function GET(
           "Content-Type": mimeType,
           "Content-Length": fileSize.toString(),
           "Accept-Ranges": "bytes",
-          "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
+          //   "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
+          "Cache-Control": "private, max-age=604800, must-revalidate",
         },
       });
     }
