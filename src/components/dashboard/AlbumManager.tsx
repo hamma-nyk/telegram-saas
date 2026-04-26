@@ -294,7 +294,7 @@ export default function AlbumManager() {
               <X size={24} />
             </button>
             <img
-              src={`data:image/jpeg;base64,${fullscreenImage}`}
+              src={fullscreenImage}
               className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
               alt="Fullscreen Media"
             />
