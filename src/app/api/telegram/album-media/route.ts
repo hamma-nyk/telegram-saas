@@ -9,52 +9,46 @@ import User from "@/models/User";
 export async function GET(req: NextRequest) {
   try {
     const sessionApp = await getServerSession(authOptions);
-    if (!sessionApp?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!sessionApp?.user?.id)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const channelId = req.nextUrl.searchParams.get("id");
-    if (!channelId) return NextResponse.json({ error: "ID Channel tidak valid" }, { status: 400 });
+    if (!channelId)
+      return NextResponse.json(
+        { error: "ID Channel tidak valid" },
+        { status: 400 },
+      );
 
     await connectMongoDB();
     const userDB = await User.findById(sessionApp.user.id);
-    
-    const apiId = parseInt(process.env.TELEGRAM_API_ID || "0");
-    const apiHash = process.env.TELEGRAM_API_HASH || "";
-    const client = new TelegramClient(new StringSession(userDB?.telegramSession as string), apiId, apiHash, { connectionRetries: 5 });
+
+    const client = new TelegramClient(
+      new StringSession(userDB?.telegramSession as string),
+      parseInt(process.env.TELEGRAM_API_ID!),
+      process.env.TELEGRAM_API_HASH!,
+      { connectionRetries: 5 },
+    );
 
     await client.connect();
 
-    // Tarik 20 pesan gambar terakhir
+    // Tarik metadata pesan gambar (Ringan & Cepat)
     const messages = await client.getMessages(channelId, {
-      limit: 20,
-      filter: new Api.InputMessagesFilterPhotos()
+      limit: 50, // Bisa ambil lebih banyak karena cuma teks
+      filter: new Api.InputMessagesFilterPhotos(),
     });
 
-    const photos = [];
-    for (const msg of messages) {
-      const captionText = msg.message || "";
-      
-      // 🔥 FITUR SOFT DELETE: Lewati gambar jika captionnya ada kata "deleted"
-      if (captionText.toLowerCase().includes("deleted")) {
-        continue;
-      }
-
-      if (msg.media) {
-        const buffer = await client.downloadMedia(msg.media, {});
-        if (buffer) {
-          photos.push({
-            id: msg.id,
-            caption: captionText,
-            base64: Buffer.from(buffer).toString("base64")
-          });
-        }
-      }
-    }
+    const photos = messages
+      .filter((msg) => !msg.message?.toLowerCase().includes("deleted"))
+      .map((msg) => ({
+        id: msg.id,
+        caption: msg.message || "",
+        // 🔥 Kirim URL Proxy, bukan datanya
+        url: `/api/telegram/media/${msg.id}?chatId=${channelId}`,
+      }));
 
     await client.disconnect();
     return NextResponse.json({ success: true, photos });
-
   } catch (error: any) {
-    console.error("Fetch Media Error:", error);
-    return NextResponse.json({ error: "Gagal menarik media dari Telegram." }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

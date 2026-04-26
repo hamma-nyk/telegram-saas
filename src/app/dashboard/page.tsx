@@ -182,7 +182,8 @@ export default function DashboardPage() {
         <audio
           ref={audioRef}
           autoPlay
-          src={`data:audio/mpeg;base64,${playerState.playlist[playerState.currentIndex].base64}`}
+          // src={`data:audio/mpeg;base64,${playerState.playlist[playerState.currentIndex].base64}`}
+          src={playerState.playlist[playerState.currentIndex].url}
           onEnded={playNext}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}

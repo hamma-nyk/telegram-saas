@@ -252,13 +252,15 @@ export default function AlbumManager() {
                   className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm relative group aspect-square"
                 >
                   <img
-                    src={`data:image/jpeg;base64,${p.base64}`}
+                    // src={`data:image/jpeg;base64,${p.base64}`}
+                    src={p.url}
                     alt="Media"
+                    loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                     <button
-                      onClick={() => setFullscreenImage(p.base64)}
+                      onClick={() => setFullscreenImage(p.url)}
                       className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 hover:text-white transition-all transform hover:scale-110"
                       title="Fullscreen"
                     >

@@ -13,12 +13,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const channelId = req.nextUrl.searchParams.get("id");
-    if (!channelId)
-      return NextResponse.json(
-        { error: "ID Channel tidak valid" },
-        { status: 400 },
-      );
-
     await connectMongoDB();
     const userDB = await User.findById(sessionApp.user.id);
 
@@ -31,54 +25,39 @@ export async function GET(req: NextRequest) {
 
     await client.connect();
 
-    // 🔥 Filter khusus AUDIO
-    const messages = await client.getMessages(channelId, {
-      limit: 20,
+    const messages = await client.getMessages(channelId as string, {
+      limit: 50,
       filter: new Api.InputMessagesFilterMusic(),
     });
 
-    const songs = [];
-    for (const msg of messages) {
-      if (msg.media && msg.media instanceof Api.MessageMediaDocument) {
-        const doc = msg.media.document as Api.Document;
-
-        // Ambil judul dari atribut audio atau nama file
-        const audioAttr = doc.attributes.find(
-          (a) => a instanceof Api.DocumentAttributeAudio,
-        ) as any;
-        const fileAttr = doc.attributes.find(
+    const songs = messages
+      .filter((msg) => !msg.message?.toLowerCase().includes("deleted"))
+      .map((msg) => {
+        const doc =
+          msg.media instanceof Api.MessageMediaDocument
+            ? (msg.media.document as Api.Document)
+            : null;
+        const attr = doc?.attributes.find(
           (a) => a instanceof Api.DocumentAttributeFilename,
         ) as any;
+        const audioAttr = doc?.attributes.find(
+          (a) => a instanceof Api.DocumentAttributeAudio,
+        ) as any;
 
-        const rawTitle =
-          audioAttr?.title || fileAttr?.fileName || "Unknown Track";
-
-        // 🔥 LOGIKA SOFT DELETE: Lewati jika ada tag 'deleted'
-        if (
-          rawTitle.toLowerCase().includes("deleted") ||
-          (msg.message && msg.message.includes("deleted"))
-        ) {
-          continue;
-        }
-
-        const buffer = await client.downloadMedia(msg.media, {});
-        if (buffer) {
-          songs.push({
-            id: msg.id,
-            title: rawTitle,
-            size: (doc.size.toJSNumber() / (1024 * 1024)).toFixed(2) + " MB",
-            base64: Buffer.from(buffer).toString("base64"),
-          });
-        }
-      }
-    }
+        return {
+          id: msg.id,
+          title: audioAttr?.title || attr?.fileName || "Unknown Track",
+          size: doc
+            ? (doc.size.toJSNumber() / (1024 * 1024)).toFixed(2) + " MB"
+            : "0 MB",
+          // 🔥 URL Proxy untuk streaming
+          url: `/api/telegram/media/${msg.id}?chatId=${channelId}`,
+        };
+      });
 
     await client.disconnect();
     return NextResponse.json({ success: true, songs });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: "Gagal menarik musik." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
