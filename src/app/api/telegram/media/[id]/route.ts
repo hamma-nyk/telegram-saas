@@ -8,14 +8,15 @@ import User from "@/models/User";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const sessionApp = await getServerSession(authOptions);
     if (!sessionApp?.user?.id)
       return new Response("Unauthorized", { status: 401 });
 
-    const messageId = parseInt(params.id);
+    const { id } = await params;
+    const messageId = parseInt(id);
     const chatId = req.nextUrl.searchParams.get("chatId");
 
     await connectMongoDB();
