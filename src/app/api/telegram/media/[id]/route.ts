@@ -55,7 +55,8 @@ export async function GET(
         headers: {
           "Content-Type": "image/jpeg",
           "Content-Length": buffer?.length.toString() || "",
-          "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
+          //   "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
+          "Cache-Control": "private, max-age=604800, must-revalidate",
         },
       });
     }
