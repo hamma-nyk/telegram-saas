@@ -30,83 +30,76 @@ export async function GET(
     await connectMongoDB();
     const userDB = await User.findById(sessionApp.user.id);
 
-    if (!userDB?.telegramSession) {
-      return new Response("No Telegram Session Found", { status: 400 });
-    }
-
     client = new TelegramClient(
-      new StringSession(userDB.telegramSession),
+      new StringSession(userDB?.telegramSession as string),
       parseInt(process.env.TELEGRAM_API_ID!),
       process.env.TELEGRAM_API_HASH!,
       { connectionRetries: 3, useWSS: true },
     );
 
     await client.connect();
-
     const [msg] = await client.getMessages(chatId, { ids: [messageId] });
 
-    // FIX 500: Pastikan pesan dan media ada
     if (!msg || !msg.media) {
-      if (client) await client.disconnect();
+      await client.disconnect();
       return new Response("Media not found", { status: 404 });
     }
 
-    // --- LOGIKA DETEKSI MEDIA (FIX IMAGE & MUSIC) ---
-    let mimeType = "application/octet-stream";
-    let fileSize = 0;
-    let mediaHandle = msg.media;
+    // --- LOGIKA PENANGANAN FOTO (REVISI) ---
+    if (msg.media instanceof Api.MessageMediaPhoto) {
+      // Untuk FOTO: Gunakan downloadMedia langsung (lebih stabil untuk gambar)
+      const buffer = await client.downloadMedia(msg.media);
+      await client.disconnect();
 
-    if (
-      msg.media instanceof Api.MessageMediaPhoto &&
-      msg.media.photo instanceof Api.Photo
-    ) {
-      // Jika itu FOTO
-      mimeType = "image/jpeg";
-      const largestSize = msg.media.photo.sizes.at(-1);
-      fileSize = (largestSize as any)?.size || 0;
-    } else if (
-      msg.media instanceof Api.MessageMediaDocument &&
-      msg.media.document instanceof Api.Document
-    ) {
-      // Jika itu DOKUMEN (Musik/Video/File)
-      mimeType = msg.media.document.mimeType || "application/octet-stream";
-      fileSize = msg.media.document.size.toJSNumber();
+      return new Response(buffer as any, {
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Content-Length": buffer?.length.toString() || "",
+          "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
+        },
+      });
     }
 
-    // --- STREAMING DENGAN CACHE ---
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          if (!client) return;
-          for await (const chunk of client.iterDownload({
-            file: mediaHandle,
-            requestSize: 512 * 1024, // 512KB per chunk
-          })) {
-            controller.enqueue(chunk);
-          }
-          controller.close();
-        } catch (e) {
-          controller.error(e);
-        } finally {
-          if (client) await client.disconnect();
-        }
-      },
-      async cancel() {
-        if (client) await client.disconnect();
-      },
-    });
+    // --- LOGIKA PENANGANAN MUSIK (STREAMING) ---
+    if (msg.media instanceof Api.MessageMediaDocument) {
+      const doc = msg.media.document as Api.Document;
+      const mimeType = doc.mimeType || "audio/mpeg";
+      const fileSize = doc.size.toJSNumber();
 
-    return new Response(stream, {
-      headers: {
-        "Content-Type": mimeType,
-        "Content-Length": fileSize > 0 ? fileSize.toString() : "",
-        "Accept-Ranges": "bytes",
-        // CACHE STRATEGY: Simpan di browser selama 1 tahun, di Vercel Edge selama 30 hari
-        "Cache-Control":
-          "public, max-age=31536000, s-maxage=2592000, stale-while-revalidate=86400",
-        "Content-Disposition": `inline; filename="media-${id}"`,
-      },
-    });
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            if (!client) return;
+            for await (const chunk of client.iterDownload({
+              file: msg.media,
+              requestSize: 512 * 1024,
+            })) {
+              controller.enqueue(chunk);
+            }
+            controller.close();
+          } catch (e) {
+            controller.error(e);
+          } finally {
+            if (client) await client.disconnect();
+          }
+        },
+        async cancel() {
+          if (client) await client.disconnect();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": mimeType,
+          "Content-Length": fileSize.toString(),
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
+        },
+      });
+    }
+
+    await client.disconnect();
+    return new Response("Unsupported Media Type", { status: 400 });
   } catch (err: any) {
     if (client) await client.disconnect();
     console.error("Critical Proxy Error:", err.message);
