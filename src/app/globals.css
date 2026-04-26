@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* --- ANIMASI FLOATING PLAYER --- */
+
+/* Animasi muncul dari bawah saat player aktif */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Animasi piringan hitam (Disc) berputar pelan */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+/* --- CUSTOM SCROLLBAR (Biar Dashboard Rapi) --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e2e8f0; /* slate-200 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1; /* slate-300 */
+}
+
+/* --- EFEK GLASSMORPHISM --- */
+.backdrop-blur-2xl {
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+}
+
+/* --- SELECTION COLOR (Aksen Dashboard) --- */
+::selection {
+  background-color: #2563eb; /* blue-600 */
+  color: white;
+}
+
+/* --- AUDIO PLAYER FIX (Jika menggunakan controls={true}) --- */
+audio.custom-audio-mini {
+  filter: sepia(20%) saturate(70%) grayscale(1) contrast(99%) invert(12%);
+  border-radius: 12px;
+}
+
+/* Menghilangkan border biru saat elemen diklik (Outline) */
+*:focus {
+  outline: none !important;
+}
+
+/* Animasi Bouncing Lembut untuk Tombol Musik saat Hide */
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce-subtle 2s infinite ease-in-out;
+}
+
+/* Styling Slider/Seekbar */
+input[type="range"] {
+  -webkit-appearance: none;
+  background: #f3e8ff; /* purple-100 */
+  border-radius: 5px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: #9333ea; /* purple-600 */
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(147, 51, 234, 0.2);
+  border: 2px solid white;
+}
+
+/* Biar Drag Ga Berasa Berat (Hardware Acceleration) */
+.fixed {
+  will-change: top, left;
+  transform: translateZ(0);
+}
