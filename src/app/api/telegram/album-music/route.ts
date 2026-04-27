@@ -28,12 +28,30 @@ export async function GET(req: NextRequest) {
       { connectionRetries: 10, useWSS: true, timeout: 20000 },
     );
 
+    // 1. Pastikan koneksi fisik terjalin
     await client.connect();
 
-    // 🔥 ANTI-FLOOD & MULTI-DC HANDSHAKE
+    // 2. Gunakan satu blok inisialisasi saja untuk memicu _recvLoop & deteksi Flood
     try {
+      // Pancingan tunggal: getMe() sudah cukup untuk inisialisasi internal sender & receiver
       await client.getMe();
-    } catch (e) {}
+    } catch (e: any) {
+      // Jika errornya adalah Flood, langsung lempar (throw) agar ditangani catch blok utama
+      if (e.message.includes("FLOOD_WAIT")) throw e;
+
+      // Jika errornya karena koneksi drop saat jabat tangan, coba sambungkan ulang SEKALI
+      console.log("Reconnecting due to handshake failure...");
+      await client.connect();
+
+      // Percobaan terakhir setelah reconnect
+      try {
+        await client.getMe();
+      } catch (secondErr) {
+        // Jika masih gagal, hentikan operasi agar tidak looping abadi
+        throw new Error("Gagal menginisialisasi sesi Telegram.");
+      }
+    }
+
     const entity = await client.getEntity(channelId as string);
 
     const messages = await client.getMessages(entity, {
