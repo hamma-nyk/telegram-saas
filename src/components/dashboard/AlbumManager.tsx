@@ -57,7 +57,7 @@ export default function AlbumManager() {
     if (!isLoadMore) {
       setActiveAlbum(album);
       setIsLoadingPhotos(true);
-      setPhotos([]);
+      setPhotos([]); // Kosongkan grid untuk album baru
       setLastId(0);
       setHasMore(true);
     } else {
@@ -65,22 +65,24 @@ export default function AlbumManager() {
     }
 
     const offset = isLoadMore ? lastId : 0;
+
     try {
-      // ✅ Menggunakan backtick untuk parameter URL
       const res = await fetch(
         `/api/telegram/album-media?id=${album.id}&offset=${offset}`,
       );
       const data = await res.json();
 
       if (data.success) {
-        // 🔥 STRATEGI SERIAL: Masukkan foto satu-persatu dengan jeda agar tidak lag
-        for (const newPhoto of data.photos) {
-          setPhotos((prev) => {
-            // Cek duplikasi ID agar tidak ada key error
-            if (prev.find((p) => p.id === newPhoto.id)) return prev;
-            return [...prev, newPhoto];
-          });
-          if (!isLoadMore) await new Promise((r) => setTimeout(r, 50));
+        // 🔥 TAKTIK GANTIAN (SERIAL LOADING DENGAN JEDA)
+        for (let i = 0; i < data.photos.length; i++) {
+          const photo = data.photos[i];
+
+          // 1. Masukkan foto ke dalam state photos
+          setPhotos((prev) => [...prev, photo]);
+
+          // 2. Berikan jeda waktu (misal 500ms - 1 detik) sebelum load foto berikutnya
+          // Agar Telegram melihat ini sebagai aktivitas manusia yang sedang melihat-lihat
+          await new Promise((resolve) => setTimeout(resolve, 800));
         }
 
         setLastId(data.lastId);
