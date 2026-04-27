@@ -16,9 +16,8 @@ export async function GET(
   const messageId = parseInt(id);
   const chatId = req.nextUrl.searchParams.get("chatId");
 
-  if (!chatId || isNaN(messageId)) {
-    return new Response("Missing Parameters", { status: 400 });
-  }
+  if (!chatId || isNaN(messageId))
+    return new Response("Missing Params", { status: 400 });
 
   let client: TelegramClient | null = null;
 
@@ -29,82 +28,106 @@ export async function GET(
 
     await connectMongoDB();
     const userDB = await User.findById(sessionApp.user.id);
+    if (!userDB?.telegramSession)
+      return new Response("No Session", { status: 404 });
 
     client = new TelegramClient(
-      new StringSession(userDB?.telegramSession as string),
+      new StringSession(userDB.telegramSession),
       parseInt(process.env.TELEGRAM_API_ID!),
       process.env.TELEGRAM_API_HASH!,
-      { connectionRetries: 3, useWSS: true },
+      {
+        connectionRetries: 5, // Jangan terlalu banyak retry agar tidak dianggap spam
+        useWSS: true,
+        autoReconnect: false,
+        timeout: 20000,
+      },
     );
 
     await client.connect();
-    const [msg] = await client.getMessages(chatId, { ids: [messageId] });
+
+    // 🔥 ANTI-FLOOD: Lakukan handshake awal yang ringan
+    try {
+      await client.getMe();
+    } catch (e: any) {
+      if (e.message.includes("FLOOD_WAIT")) throw e;
+    }
+
+    const entity = await client.getEntity(chatId);
+    const [msg] = await client.getMessages(entity, { ids: [messageId] });
 
     if (!msg || !msg.media) {
       await client.disconnect();
       return new Response("Media not found", { status: 404 });
     }
 
-    // --- LOGIKA PENANGANAN FOTO (REVISI) ---
-    if (msg.media instanceof Api.MessageMediaPhoto) {
-      // Untuk FOTO: Gunakan downloadMedia langsung (lebih stabil untuk gambar)
-      const buffer = await client.downloadMedia(msg.media);
-      await client.disconnect();
+    // Deteksi DC Awal dari metadata
+    const mediaObj =
+      (msg.media as any).document || (msg.media as any).photo || msg.media;
+    const initialDC = mediaObj.dcId || 2;
 
-      return new Response(buffer as any, {
-        headers: {
-          "Content-Type": "image/jpeg",
-          "Content-Length": buffer?.length.toString() || "",
-          //   "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
-          "Cache-Control": "private, max-age=604800, must-revalidate",
-        },
-      });
-    }
+    const stream = new ReadableStream({
+      async start(controller) {
+        if (!client) return;
 
-    // --- LOGIKA PENANGANAN MUSIK (STREAMING) ---
-    if (msg.media instanceof Api.MessageMediaDocument) {
-      const doc = msg.media.document as Api.Document;
-      const mimeType = doc.mimeType || "audio/mpeg";
-      const fileSize = doc.size.toJSNumber();
-
-      const stream = new ReadableStream({
-        async start(controller) {
+        // 🔥 RECURSIVE DOWNLOAD: Hanya pindah DC jika diminta Telegram (FILE_MIGRATE)
+        async function downloadManager(targetDC: number) {
           try {
-            if (!client) return;
-            for await (const chunk of client.iterDownload({
+            for await (const chunk of client!.iterDownload({
               file: msg.media,
+              // 🔥 ANTI-FLOOD: Chunk lebih besar (512KB) mengurangi jumlah request ke Telegram
               requestSize: 512 * 1024,
+              dcId: targetDC,
             })) {
               controller.enqueue(chunk);
             }
             controller.close();
-          } catch (e) {
-            controller.error(e);
-          } finally {
-            if (client) await client.disconnect();
+          } catch (e: any) {
+            if (e.message.includes("FILE_MIGRATE_")) {
+              const nextDC = parseInt(e.message.split("_").pop());
+              console.log(`📡 Migrating to DC: ${nextDC}`);
+              return downloadManager(nextDC); // Pindah jalur secara resmi
+            } else if (e.message.includes("FLOOD_WAIT_")) {
+              controller.error(e); // Beritahu frontend ada flood
+            } else {
+              controller.error(e);
+            }
           }
-        },
-        async cancel() {
-          if (client) await client.disconnect();
-        },
-      });
+        }
 
-      return new Response(stream, {
-        headers: {
-          "Content-Type": mimeType,
-          "Content-Length": fileSize.toString(),
-          "Accept-Ranges": "bytes",
-          //   "Cache-Control": "public, max-age=31536000, s-maxage=2592000",
-          "Cache-Control": "private, max-age=604800, must-revalidate",
-        },
+        await downloadManager(initialDC);
+      },
+      async cancel() {
+        if (client) await client.disconnect();
+      },
+      // Penting untuk cleanup di Vercel
+      async pull() {},
+    });
+
+    const mimeType = (msg.media as any).document?.mimeType || "image/jpeg";
+    const fileSize =
+      (msg.media as any).document?.size?.toJSNumber() ||
+      (msg.media as any).photo?.sizes?.at(-1)?.size ||
+      0;
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": mimeType,
+        "Content-Length": fileSize > 0 ? fileSize.toString() : "",
+        "Accept-Ranges": "bytes",
+        // 🔥 CACHE AGRESIF: Mencegah user download ulang yang memicu Flood
+        "Cache-Control": "private, max-age=31536000, immutable",
+      },
+    });
+  } catch (err: any) {
+    if (client) await client.disconnect();
+
+    if (err.message.includes("FLOOD_WAIT_")) {
+      const seconds = err.message.split("_").pop();
+      return new Response(`Flood Limit: Silakan tunggu ${seconds} detik.`, {
+        status: 429,
       });
     }
 
-    await client.disconnect();
-    return new Response("Unsupported Media Type", { status: 400 });
-  } catch (err: any) {
-    if (client) await client.disconnect();
-    console.error("Critical Proxy Error:", err.message);
-    return new Response(`Server Error: ${err.message}`, { status: 500 });
+    return new Response(`Error: ${err.message}`, { status: 500 });
   }
 }

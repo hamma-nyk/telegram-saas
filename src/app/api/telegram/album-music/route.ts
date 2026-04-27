@@ -6,27 +6,39 @@ import { StringSession } from "telegram/sessions";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/User";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
+  let client: TelegramClient | null = null;
   try {
     const sessionApp = await getServerSession(authOptions);
     if (!sessionApp?.user?.id)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const channelId = req.nextUrl.searchParams.get("id");
+    const offsetId = parseInt(req.nextUrl.searchParams.get("offset") || "0");
+
     await connectMongoDB();
     const userDB = await User.findById(sessionApp.user.id);
 
-    const client = new TelegramClient(
+    client = new TelegramClient(
       new StringSession(userDB?.telegramSession as string),
       parseInt(process.env.TELEGRAM_API_ID!),
       process.env.TELEGRAM_API_HASH!,
-      { connectionRetries: 5 },
+      { connectionRetries: 10, useWSS: true, timeout: 20000 },
     );
 
     await client.connect();
 
-    const messages = await client.getMessages(channelId as string, {
-      limit: 50,
+    // 🔥 ANTI-FLOOD & MULTI-DC HANDSHAKE
+    try {
+      await client.getMe();
+    } catch (e) {}
+    const entity = await client.getEntity(channelId as string);
+
+    const messages = await client.getMessages(entity, {
+      limit: 8, // Ambil 20 per batch
+      offsetId: offsetId,
       filter: new Api.InputMessagesFilterMusic(),
     });
 
@@ -50,14 +62,16 @@ export async function GET(req: NextRequest) {
           size: doc
             ? (doc.size.toJSNumber() / (1024 * 1024)).toFixed(2) + " MB"
             : "0 MB",
-          // 🔥 URL Proxy untuk streaming
           url: `/api/telegram/media/${msg.id}?chatId=${channelId}`,
         };
       });
 
     await client.disconnect();
-    return NextResponse.json({ success: true, songs });
+    const lastId = messages.length > 0 ? messages[messages.length - 1].id : 0;
+
+    return NextResponse.json({ success: true, songs, lastId });
   } catch (error: any) {
+    if (client) await client.disconnect();
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -21,6 +21,11 @@ export default function MusicManager({ setPlayerState }: any) {
   const [songs, setSongs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 🔥 STATE LOAD MORE
+  const [lastId, setLastId] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   // State Modal & Search
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [availableChannels, setAvailableChannels] = useState<any[]>([]);
@@ -43,25 +48,49 @@ export default function MusicManager({ setPlayerState }: any) {
     }
   };
 
-  const loadMusic = async (channel: any) => {
-    setActiveChannel(channel);
-    setIsLoading(true);
-    setSongs([]);
+  const loadMusic = async (channel: any, isLoadMore = false) => {
+    if (!isLoadMore) {
+      setActiveChannel(channel);
+      setIsLoading(true);
+      setSongs([]);
+      setLastId(0);
+      setHasMore(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
+    const offset = isLoadMore ? lastId : 0;
     try {
-      // Mengambil metadata lagu (ID & URL Proxy)
-      const res = await fetch(`/api/telegram/album-music?id=${channel.id}`);
+      const res = await fetch(
+        `/api/telegram/album-music?id=${channel.id}&offset=${offset}`,
+      );
       const data = await res.json();
-      if (data.success) setSongs(data.songs);
+
+      if (data.success) {
+        // 🔥 SERIAL LOADING: Masukkan lagu satu-satu untuk visual yang bagus
+        for (const newSong of data.songs) {
+          setSongs((prev) => {
+            if (prev.find((s) => s.id === newSong.id)) return prev;
+            return [...prev, newSong];
+          });
+          if (!isLoadMore) await new Promise((r) => setTimeout(r, 50));
+        }
+
+        setLastId(data.lastId);
+        if (data.songs.length < 8) setHasMore(false);
+      }
     } catch (err) {
       console.error("Gagal load music:", err);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
+  // ... (handlePlay, handleUploadMusic, handleDeleteMusic, openAddModal, saveMusicChannels tetap sama)
   const handlePlay = (index: number) => {
     setPlayerState({
-      playlist: songs, // Mengirim playlist berisi URL streaming
+      playlist: songs,
       currentIndex: index,
     });
   };
@@ -144,7 +173,6 @@ export default function MusicManager({ setPlayerState }: any) {
     c.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // VIEW MODE: DALAM CHANNEL MUSIK
   if (activeChannel) {
     return (
       <div className="rounded-[2.5rem] bg-white p-8 border border-gray-100 shadow-sm min-h-[500px]">
@@ -179,7 +207,7 @@ export default function MusicManager({ setPlayerState }: any) {
           </div>
         </div>
 
-        {/* UPLOAD SECTION */}
+        {/* Form Upload tetap sama */}
         <div className="mb-10 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
           <form
             onSubmit={handleUploadMusic}
@@ -214,8 +242,8 @@ export default function MusicManager({ setPlayerState }: any) {
           </form>
         </div>
 
-        {/* SONG LIST */}
-        {isLoading ? (
+        {/* SONG LIST DENGAN LOAD MORE */}
+        {isLoading && songs.length === 0 ? (
           <div className="py-24 text-center">
             <Loader2
               size={48}
@@ -233,59 +261,84 @@ export default function MusicManager({ setPlayerState }: any) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            {songs.map((song: any, index: number) => (
-              <div
-                key={song.id}
-                className="group bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-2xl hover:shadow-purple-100 hover:border-purple-100 transition-all duration-500 flex flex-col justify-between relative overflow-hidden"
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteMusic(song.id, song.title);
-                  }}
-                  className="absolute top-4 right-4 p-2.5 bg-white/90 backdrop-blur-md text-slate-300 hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-20 shadow-sm border border-slate-100"
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+              {songs.map((song: any, index: number) => (
+                <div
+                  key={song.id}
+                  className="group bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-2xl hover:shadow-purple-100 hover:border-purple-100 transition-all duration-500 flex flex-col justify-between relative overflow-hidden animate-in fade-in zoom-in duration-500"
                 >
-                  <Trash2 size={16} />
-                </button>
-
-                <div className="flex flex-col items-center relative">
-                  <div className="w-full aspect-square bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-slate-200 group-hover:bg-purple-600 group-hover:text-white transition-all duration-700 mb-5 shadow-inner">
-                    <Music
-                      size={48}
-                      strokeWidth={1.5}
-                      className="group-hover:scale-110 transition-transform"
-                    />
-                  </div>
-
-                  <div className="w-full text-center px-1">
-                    <h4 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] mb-1 group-hover:text-purple-600 transition-colors">
-                      {song.title}
-                    </h4>
-                    <div className="inline-block text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-lg group-hover:bg-purple-50 group-hover:text-purple-400">
-                      {song.size}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteMusic(song.id, song.title);
+                    }}
+                    className="absolute top-4 right-4 p-2.5 bg-white/90 backdrop-blur-md text-slate-300 hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-20 shadow-sm border border-slate-100"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <div className="flex flex-col items-center relative">
+                    <div className="w-full aspect-square bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-slate-200 group-hover:bg-purple-600 group-hover:text-white transition-all duration-700 mb-5 shadow-inner">
+                      <Music
+                        size={48}
+                        strokeWidth={1.5}
+                        className="group-hover:scale-110 transition-transform"
+                      />
+                    </div>
+                    <div className="w-full text-center px-1">
+                      <h4 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] mb-1 group-hover:text-purple-600 transition-colors">
+                        {song.title}
+                      </h4>
+                      <div className="inline-block text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-lg group-hover:bg-purple-50 group-hover:text-purple-400">
+                        {song.size}
+                      </div>
                     </div>
                   </div>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => handlePlay(index)}
+                      className="w-full flex items-center justify-center gap-3 bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-600 shadow-xl shadow-slate-100 hover:shadow-purple-200 transition-all active:scale-95"
+                    >
+                      <Play size={14} fill="currentColor" /> Play Now
+                    </button>
+                  </div>
                 </div>
-
-                <div className="mt-6">
+              ))}
+            </div>
+            {/* 🔥 TOMBOL LOAD MORE */}
+            <div className="w-full flex flex-col items-center justify-center mt-12 mb-6">
+              {hasMore && songs.length > 0 ? (
+                <div className="flex justify-center py-12">
                   <button
-                    onClick={() => handlePlay(index)}
-                    className="w-full flex items-center justify-center gap-3 bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-600 shadow-xl shadow-slate-100 hover:shadow-purple-200 transition-all active:scale-95"
+                    onClick={() => loadMusic(activeChannel, true)}
+                    disabled={isLoadingMore}
+                    className="flex items-center gap-3 bg-white border-2 border-purple-600 text-purple-600 px-12 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all shadow-xl shadow-purple-100 active:scale-95 disabled:opacity-50"
                   >
-                    <Play size={14} fill="currentColor" />
-                    Play Now
+                    {isLoadingMore ? (
+                      <Loader2 size={24} className="animate-spin" />
+                    ) : (
+                      <Plus size={24} />
+                    )}
+                    {isLoadingMore ? "Menarik Data..." : "MUAT LEBIH BANYAK"}
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
+              ) : (
+                songs.length > 0 && (
+                  <div className="py-4 px-8 bg-gray-50 rounded-full border border-gray-100">
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">
+                      Operasi Selesai - Semua Musik Dimuat
+                    </p>
+                  </div>
+                )
+              )}
+            </div>{" "}
+          </>
         )}
       </div>
     );
   }
 
-  // LIST MODE: DAFTAR CHANNEL
+  // ... (LIST MODE: DAFTAR CHANNEL & MODAL tetap sama sesuai kode awal Anda)
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center rounded-[2.5rem] bg-white p-8 border border-gray-100 shadow-sm">
@@ -321,7 +374,7 @@ export default function MusicManager({ setPlayerState }: any) {
               className="group cursor-pointer rounded-[2.5rem] bg-white p-8 border border-gray-100 shadow-sm hover:border-purple-400 hover:shadow-2xl hover:shadow-purple-50 transition-all flex items-center gap-6"
             >
               <div className="w-16 h-16 rounded-[1.5rem] bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-inner">
-                <MusicIcon size={32} />
+                <Music size={32} />
               </div>
               <div className="overflow-hidden">
                 <h4 className="text-lg font-bold text-slate-900 truncate group-hover:text-purple-600 transition-colors">
@@ -435,9 +488,4 @@ export default function MusicManager({ setPlayerState }: any) {
       )}
     </div>
   );
-}
-
-// Ikon helper agar konsisten
-function MusicIcon({ size }: { size: number }) {
-  return <Music size={size} />;
 }

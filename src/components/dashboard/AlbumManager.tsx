@@ -27,12 +27,16 @@ export default function AlbumManager() {
   const [uploadCaption, setUploadCaption] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  // State Modal Channel, Search, & Loading
+  // State Load More
+  const [lastId, setLastId] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // State Modal & Search
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [availableChannels, setAvailableChannels] = useState<any[]>([]);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingChannels, setIsLoadingChannels] = useState(false);
 
@@ -49,18 +53,44 @@ export default function AlbumManager() {
     }
   };
 
-  const openAlbum = async (album: any) => {
-    setActiveAlbum(album);
-    setIsLoadingPhotos(true);
-    setPhotos([]);
+  const openAlbum = async (album: any, isLoadMore = false) => {
+    if (!isLoadMore) {
+      setActiveAlbum(album);
+      setIsLoadingPhotos(true);
+      setPhotos([]);
+      setLastId(0);
+      setHasMore(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
+    const offset = isLoadMore ? lastId : 0;
     try {
-      const res = await fetch(`/api/telegram/album-media?id=${album.id}`);
+      // ✅ Menggunakan backtick untuk parameter URL
+      const res = await fetch(
+        `/api/telegram/album-media?id=${album.id}&offset=${offset}`,
+      );
       const data = await res.json();
-      if (data.success) setPhotos(data.photos);
+
+      if (data.success) {
+        // 🔥 STRATEGI SERIAL: Masukkan foto satu-persatu dengan jeda agar tidak lag
+        for (const newPhoto of data.photos) {
+          setPhotos((prev) => {
+            // Cek duplikasi ID agar tidak ada key error
+            if (prev.find((p) => p.id === newPhoto.id)) return prev;
+            return [...prev, newPhoto];
+          });
+          if (!isLoadMore) await new Promise((r) => setTimeout(r, 50));
+        }
+
+        setLastId(data.lastId);
+        if (data.photos.length < 8) setHasMore(false);
+      }
     } catch (err) {
-      alert("Gagal memuat foto");
+      console.error("Gagal muat foto:", err);
     } finally {
       setIsLoadingPhotos(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -172,7 +202,7 @@ export default function AlbumManager() {
           <ArrowLeft
             size={16}
             className="group-hover:-translate-x-1 transition-transform"
-          />{" "}
+          />
           Kembali ke Daftar Album
         </button>
 
@@ -188,6 +218,7 @@ export default function AlbumManager() {
           </div>
         </div>
 
+        {/* Form Upload */}
         <form
           onSubmit={handleUpload}
           className="mb-10 flex flex-col md:flex-row gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 items-center shadow-sm"
@@ -226,7 +257,7 @@ export default function AlbumManager() {
           </button>
         </form>
 
-        {isLoadingPhotos ? (
+        {isLoadingPhotos && photos.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24">
             <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
             <p className="font-bold text-gray-400">
@@ -241,50 +272,85 @@ export default function AlbumManager() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            {photos.map((p) => {
-              const cleanCaption = p.caption
-                ? p.caption.replace(/(\s*\|\s*show\s*)/gi, "")
-                : "-";
-              return (
-                <div
-                  key={p.id}
-                  className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm relative group aspect-square"
-                >
-                  <img
-                    // src={`data:image/jpeg;base64,${p.base64}`}
-                    src={p.url}
-                    alt="Media"
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                    <button
-                      onClick={() => setFullscreenImage(p.url)}
-                      className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 hover:text-white transition-all transform hover:scale-110"
-                      title="Fullscreen"
-                    >
-                      <Maximize2 size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleSoftDelete(p.id, p.caption)}
-                      className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 hover:text-white transition-all transform hover:scale-110"
-                      title="Hapus Gambar"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {photos.map((p, index) => {
+                const cleanCaption = p.caption
+                  ? p.caption.replace(/(\s*\|\s*show\s*)/gi, "")
+                  : "-";
+                return (
+                  <div
+                    key={`container-${p.id}-${index}`} // Key unik agar React tidak bingung
+                    className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm relative group aspect-square animate-in fade-in zoom-in duration-500"
+                  >
+                    <img
+                      key={`img-${p.id}`}
+                      src={p.url}
+                      alt="Media"
+                      loading="lazy"
+                      // Fitur Anti-Glitch: Jika gagal load, browser akan coba refresh src sekali lagi
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.includes("retry=1")) {
+                          target.src = `${p.url}&retry=1`;
+                        }
+                      }}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+
+                    <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                      <button
+                        onClick={() => setFullscreenImage(p.url)}
+                        className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 hover:text-white transition-all transform hover:scale-110"
+                      >
+                        <Maximize2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleSoftDelete(p.id, p.caption)}
+                        className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 hover:text-white transition-all transform hover:scale-110"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12 text-white">
+                      <p className="text-xs font-bold leading-relaxed truncate">
+                        {cleanCaption || "-"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12 text-white">
-                    <p className="text-xs font-bold leading-relaxed truncate">
-                      {cleanCaption || "-"}
+                );
+              })}
+            </div>
+            {/* --- TOMBOL LOAD MORE (PASTIKAN DILUAR GRID) --- */}
+            <div className="w-full flex flex-col items-center justify-center mt-12 mb-6">
+              {hasMore && photos.length > 0 ? (
+                <button
+                  onClick={() => openAlbum(activeAlbum, true)}
+                  disabled={isLoadingMore}
+                  className="flex items-center gap-3 bg-white border-2 border-blue-600 text-blue-600 px-12 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl shadow-blue-100 active:scale-95 disabled:opacity-50"
+                >
+                  {isLoadingMore ? (
+                    <Loader2 size={24} className="animate-spin" />
+                  ) : (
+                    <Plus size={24} />
+                  )}
+                  {isLoadingMore ? "Menarik Data..." : "MUAT LEBIH BANYAK"}
+                </button>
+              ) : (
+                photos.length > 0 && (
+                  <div className="py-4 px-8 bg-gray-50 rounded-full border border-gray-100">
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">
+                      Operasi Selesai - Semua Foto Dimuat
                     </p>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                )
+              )}
+            </div>{" "}
+          </>
         )}
 
+        {/* Modal Fullscreen */}
         {fullscreenImage && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm animate-in fade-in duration-300">
             <button
@@ -312,7 +378,6 @@ export default function AlbumManager() {
       <div className="flex justify-between items-center rounded-3xl bg-white p-6 border border-gray-100 shadow-sm">
         <div>
           <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            {/* <Folder size={20} className="text-blue-600" /> */}
             Album Tersimpan
           </h3>
           <p className="text-xs text-gray-500">
@@ -358,11 +423,10 @@ export default function AlbumManager() {
         </div>
       )}
 
-      {/* MODAL ADD ALBUM */}
+      {/* Modal Add Album */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300">
-            {/* Header Modal */}
             <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
               <div>
                 <h3 className="font-black text-xl tracking-tight">
@@ -380,27 +444,23 @@ export default function AlbumManager() {
               </button>
             </div>
 
-            {/* Kolom Pencarian */}
-            {!isLoadingChannels && availableChannels.length > 0 && (
-              <div className="px-8 py-5 bg-white border-b border-gray-100">
-                <div className="relative group">
-                  <Search
-                    size={18}
-                    className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-blue-600 transition-colors"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Cari nama channel atau grup..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-100 bg-gray-50 py-3.5 pl-11 pr-4 text-sm focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
+            <div className="px-8 py-5 bg-white border-b border-gray-100">
+              <div className="relative group">
+                <Search
+                  size={18}
+                  className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-blue-600 transition-colors"
+                />
+                <input
+                  type="text"
+                  placeholder="Cari nama channel..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-100 bg-gray-50 py-3.5 pl-11 pr-4 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                />
               </div>
-            )}
+            </div>
 
-            {/* Area List Channel */}
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
               {isLoadingChannels ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <Loader2
@@ -411,37 +471,25 @@ export default function AlbumManager() {
                     Menyedot channel...
                   </p>
                 </div>
-              ) : filteredChannels.length === 0 ? (
-                <div className="text-center py-16">
-                  <AlertCircle
-                    size={48}
-                    className="mx-auto text-gray-200 mb-4"
-                  />
-                  <p className="font-bold text-gray-400 italic">
-                    Data tidak ditemukan.
-                  </p>
-                </div>
               ) : (
                 <div className="space-y-3">
                   {filteredChannels.map((c) => (
                     <label
                       key={c.id}
-                      className="group flex items-center gap-4 p-4 rounded-2xl bg-white hover:bg-blue-50/50 cursor-pointer border border-gray-100 hover:border-blue-200 transition-all shadow-sm"
+                      className="group flex items-center gap-4 p-4 rounded-2xl bg-white hover:bg-blue-50/50 cursor-pointer border border-gray-100 transition-all shadow-sm"
                     >
-                      <div className="relative flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedChannelIds.includes(c.id)}
-                          onChange={() =>
-                            setSelectedChannelIds((prev) =>
-                              prev.includes(c.id)
-                                ? prev.filter((id) => id !== c.id)
-                                : [...prev, c.id],
-                            )
-                          }
-                          className="peer w-6 h-6 rounded-lg border-gray-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer transition-all"
-                        />
-                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedChannelIds.includes(c.id)}
+                        onChange={() =>
+                          setSelectedChannelIds((prev) =>
+                            prev.includes(c.id)
+                              ? prev.filter((id) => id !== c.id)
+                              : [...prev, c.id],
+                          )
+                        }
+                        className="w-6 h-6 rounded-lg border-gray-200 text-blue-600 cursor-pointer"
+                      />
                       <div className="overflow-hidden">
                         <p className="font-bold text-sm text-gray-900 truncate group-hover:text-blue-600 transition-colors">
                           {c.title}
@@ -456,12 +504,11 @@ export default function AlbumManager() {
               )}
             </div>
 
-            {/* Tombol Simpan */}
             <div className="p-8 border-t border-gray-100 bg-white">
               <button
                 onClick={saveAlbums}
                 disabled={isLoadingChannels}
-                className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-200 hover:bg-blue-600 hover:shadow-blue-200 disabled:bg-gray-200 transition-all transform active:scale-[0.98] uppercase tracking-widest text-xs"
+                className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-600 transition-all uppercase tracking-widest text-xs"
               >
                 SIMPAN ALBUM TERPILIH
               </button>
