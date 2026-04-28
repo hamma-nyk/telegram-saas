@@ -31,30 +31,35 @@ export async function GET(
     if (!userDB?.telegramSession)
       return new Response("No Session", { status: 404 });
 
+    // ✅ Inisialisasi dengan timeout lebih panjang untuk Cloud
     client = new TelegramClient(
       new StringSession(userDB.telegramSession),
       parseInt(process.env.TELEGRAM_API_ID!),
       process.env.TELEGRAM_API_HASH!,
-      { connectionRetries: 5, useWSS: true, timeout: 20000 },
+      {
+        connectionRetries: 5,
+        useWSS: true,
+        timeout: 30000, // Naik ke 30 detik
+        autoReconnect: false,
+      },
     );
 
+    // 🔥 STRATEGI KONEKSI BERLAPIS (KHUSUS VERCEL)
     await client.connect();
 
-    // 🔥 VALIDASI SESI (Cegah AUTH_BYTES_INVALID)
-    try {
-      const isAuth = await client.checkAuthorization();
-      if (!isAuth) throw new Error("AUTH_KEY_UNREGISTERED");
-      await client.getMe();
-    } catch (e: any) {
-      if (e.message.includes("FLOOD_WAIT")) throw e;
-      await client.connect(); // Re-attempt sekali jika jabat tangan gagal
+    // Pastikan benar-benar terhubung sebelum lanjut
+    const me = await client.getMe();
+    if (!me) {
+      // Jika getMe gagal/null, paksa reconnect sekali lagi
+      await client.disconnect();
+      await client.connect();
     }
 
     const entity = await client.getEntity(chatId);
     const [msg] = await client.getMessages(entity, { ids: [messageId] });
 
     if (!msg || !msg.media) {
-      await client.disconnect();
+      if (client) await client.disconnect();
       return new Response("Media not found", { status: 404 });
     }
 
@@ -65,12 +70,12 @@ export async function GET(
     const stream = new ReadableStream({
       async start(controller) {
         if (!client) return;
-
         async function downloadManager(dc: number) {
           try {
+            // ✅ Gunakan requestSize ultra kecil untuk stabilitas sin1
             for await (const chunk of client!.iterDownload({
               file: msg.media,
-              requestSize: 64 * 1024, // Diperkecil ke 64KB untuk stabilitas Node 22
+              requestSize: 32 * 1024, // 32KB lebih lambat tapi jauh lebih stabil
               dcId: dc,
             })) {
               controller.enqueue(chunk);
@@ -91,25 +96,35 @@ export async function GET(
       },
     });
 
-    const mimeType = (msg.media as any).document?.mimeType || "image/jpeg";
-    const fileSize =
-      (msg.media as any).document?.size?.toJSNumber() ||
-      (msg.media as any).photo?.sizes?.at(-1)?.size ||
-      0;
-
     return new Response(stream, {
       headers: {
-        "Content-Type": mimeType,
-        "Content-Length": fileSize > 0 ? fileSize.toString() : "",
+        "Content-Type": (msg.media as any).document?.mimeType || "image/jpeg",
+        "Content-Length":
+          (msg.media as any).document?.size?.toJSNumber().toString() ||
+          (msg.media as any).photo?.sizes?.at(-1)?.size?.toString() ||
+          "",
         "Accept-Ranges": "bytes",
-        "Cache-Control": "private, max-age=31536000, immutable", // Cache agresif anti-flood
+        "Cache-Control": "private, max-age=31536000, immutable",
       },
     });
   } catch (err: any) {
-    if (client) await client.disconnect();
-    console.error("Critical Proxy Error:", err.message);
-    if (err.message.includes("FLOOD_WAIT"))
-      return new Response("Flood Limit", { status: 429 });
-    return new Response(`Error: ${err.message}`, { status: 500 });
+    if (client) {
+      try {
+        await client.disconnect();
+      } catch {}
+    }
+    console.error("Vercel Critical Error:", err.message);
+
+    // Kirim response status yang tepat agar Vercel tidak bingung
+    if (
+      err.message.includes("AUTH_KEY_UNREGISTERED") ||
+      err.message.includes("AUTH_BYTES_INVALID")
+    ) {
+      return new Response("Session Expired", { status: 401 });
+    }
+    if (err.message.includes("FLOOD_WAIT")) {
+      return new Response("Flood Wait", { status: 429 });
+    }
+    return new Response(`Server Error: ${err.message}`, { status: 500 });
   }
 }
