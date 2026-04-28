@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Ambil Parameter
+    // 2. Ambil Parameter (ID Channel & Offset untuk Load More)
     const channelId = req.nextUrl.searchParams.get("id");
     const offsetId = parseInt(req.nextUrl.searchParams.get("offset") || "0");
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 3. Koneksi Database & Ambil Sesi Telegram
+    // 3. Koneksi Database & Verifikasi Sesi Telegram
     await connectMongoDB();
     const userDB = await User.findById(sessionApp.user.id);
 
@@ -40,68 +40,54 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 4. Inisialisasi Telegram Client
+    // 4. Inisialisasi Telegram Client dengan Timeout yang Lebih Luas
     client = new TelegramClient(
       new StringSession(userDB.telegramSession),
       parseInt(process.env.TELEGRAM_API_ID!),
       process.env.TELEGRAM_API_HASH!,
       {
-        connectionRetries: 3,
+        connectionRetries: 10,
         useWSS: true,
-        autoReconnect: false, // Serverless lebih aman tanpa auto-reconnect
+        autoReconnect: false,
         timeout: 20000,
       },
     );
 
-    // 1. Pastikan koneksi fisik terjalin
     await client.connect();
 
-    // 2. Gunakan satu blok inisialisasi saja untuk memicu _recvLoop & deteksi Flood
+    // 🔥 ANTI-FLOOD HANDSHAKE: Memastikan receiver siap sebelum menarik media
     try {
-      // Pancingan tunggal: getMe() sudah cukup untuk inisialisasi internal sender & receiver
       await client.getMe();
     } catch (e: any) {
-      // Jika errornya adalah Flood, langsung lempar (throw) agar ditangani catch blok utama
       if (e.message.includes("FLOOD_WAIT")) throw e;
-
-      // Jika errornya karena koneksi drop saat jabat tangan, coba sambungkan ulang SEKALI
-      console.log("Reconnecting due to handshake failure...");
-      await client.connect();
-
-      // Percobaan terakhir setelah reconnect
-      try {
-        await client.getMe();
-      } catch (secondErr) {
-        // Jika masih gagal, hentikan operasi agar tidak looping abadi
-        throw new Error("Gagal menginisialisasi sesi Telegram.");
-      }
+      // Jika hanya gangguan koneksi sesaat, coba lanjut
     }
 
-    // 5. Resolusi Entity & Ambil Metadata Pesan
-    // Menggunakan getEntity memastikan jalur DC ke channel tersebut terbuka
+    // 5. Resolusi Jalur DC (Data Center) ke Channel Tujuan
     const entity = await client.getEntity(channelId);
 
+    // 6. Tarik Pesan Foto
     const messages = await client.getMessages(entity, {
-      limit: 8, // Limit 20 agar tidak terlalu berat saat serial loading di frontend
+      limit: 8, // Diturunkan agar lebih ringan di Vercel/Node 22
       offsetId: offsetId,
       filter: new Api.InputMessagesFilterPhotos(),
     });
 
-    // 6. Mapping Data Foto
+    // 7. Mapping Data untuk Frontend
     const photos = messages
       .filter((msg) => !msg.message?.toLowerCase().includes("deleted"))
       .map((msg) => ({
         id: msg.id,
         caption: msg.message || "",
-        // Proxy URL mengarah ke api/telegram/media/[id]
+        // Mengarah ke Proxy Media yang mendukung Auto-DC
         url: `/api/telegram/media/${msg.id}?chatId=${channelId}`,
         date: msg.date,
       }));
 
-    // 7. Cleanup & Response
-    await client.disconnect();
-
+    // 8. Tentukan ID Terakhir untuk fitur "Muat Lebih Banyak"
     const lastId = messages.length > 0 ? messages[messages.length - 1].id : 0;
+
+    await client.disconnect();
 
     return NextResponse.json({
       success: true,
@@ -112,28 +98,28 @@ export async function GET(req: NextRequest) {
     if (client) await client.disconnect();
     console.error("ALBUM MEDIA ERROR:", error.message);
 
-    // Penanganan Error FLOOD
+    // Deteksi Spesifik: Flood Wait
     if (error.message.includes("FLOOD_WAIT_")) {
       const seconds = error.message.split("_").pop();
       return NextResponse.json(
-        { error: `Flood Limit. Tunggu ${seconds} detik.` },
+        { error: `Batas tercapai. Tunggu ${seconds} detik.` },
         { status: 429 },
       );
     }
 
-    // Penanganan Sesi Mati
+    // Deteksi Spesifik: Sesi Rusak/Kadaluarsa
     if (
       error.message.includes("AUTH_KEY_UNREGISTERED") ||
       error.message.includes("AUTH_BYTES_INVALID")
     ) {
       return NextResponse.json(
-        { error: "Sesi Telegram kadaluarsa. Silakan login ulang." },
+        { error: "Sesi tidak valid, silakan login ulang." },
         { status: 401 },
       );
     }
 
     return NextResponse.json(
-      { error: "Gagal mengambil data media." },
+      { error: `Gagal menarik media: ${error.message}` },
       { status: 500 },
     );
   }
