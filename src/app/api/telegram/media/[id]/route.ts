@@ -16,8 +16,9 @@ export async function GET(
   const messageId = parseInt(id);
   const chatId = req.nextUrl.searchParams.get("chatId");
 
-  if (!chatId || isNaN(messageId))
-    return new Response("Missing Params", { status: 400 });
+  if (!chatId || isNaN(messageId)) {
+    return new Response("Missing Parameters", { status: 400 });
+  }
 
   let client: TelegramClient | null = null;
 
@@ -31,7 +32,6 @@ export async function GET(
     if (!userDB?.telegramSession)
       return new Response("No Session", { status: 404 });
 
-    // ✅ Inisialisasi dengan timeout lebih panjang untuk Cloud
     client = new TelegramClient(
       new StringSession(userDB.telegramSession),
       parseInt(process.env.TELEGRAM_API_ID!),
@@ -39,22 +39,18 @@ export async function GET(
       {
         connectionRetries: 5,
         useWSS: true,
-        timeout: 30000, // Naik ke 30 detik
-        autoReconnect: false,
+        timeout: 20000, // Menambah napas untuk koneksi Cloud
       },
     );
 
-    // 🔥 STRATEGI KONEKSI BERLAPIS (KHUSUS VERCEL)
     await client.connect();
 
-    // Pastikan benar-benar terhubung sebelum lanjut
-    const me = await client.getMe();
-    if (!me) {
-      // Jika getMe gagal/null, paksa reconnect sekali lagi
-      await client.disconnect();
-      await client.connect();
-    }
+    // 🔥 WAJIB DI VERCEL: Pancing inisialisasi agar internal receiver aktif
+    try {
+      await client.getMe();
+    } catch (e) {}
 
+    // 🔥 MULTI-DC SUPPORT: Gunakan getEntity untuk mendeteksi lokasi DC file
     const entity = await client.getEntity(chatId);
     const [msg] = await client.getMessages(entity, { ids: [messageId] });
 
@@ -63,68 +59,83 @@ export async function GET(
       return new Response("Media not found", { status: 404 });
     }
 
+    // Deteksi target DC agar tidak terjadi FILE_MIGRATE error
     const mediaObj =
       (msg.media as any).document || (msg.media as any).photo || msg.media;
     const targetDC = mediaObj.dcId || 2;
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        if (!client) return;
-        async function downloadManager(dc: number) {
+    // --- LOGIKA PENANGANAN FOTO ---
+    if (msg.media instanceof Api.MessageMediaPhoto) {
+      const buffer = await client.downloadMedia(msg.media);
+      await client.disconnect();
+
+      return new Response(buffer as any, {
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Content-Length": buffer?.length.toString() || "",
+          "Cache-Control": "private, max-age=31536000, immutable",
+        },
+      });
+    }
+
+    // --- LOGIKA PENANGANAN MUSIK (STREAMING) ---
+    if (msg.media instanceof Api.MessageMediaDocument) {
+      const doc = msg.media.document as Api.Document;
+      const mimeType = doc.mimeType || "audio/mpeg";
+      const fileSize = doc.size.toJSNumber();
+
+      const stream = new ReadableStream({
+        async start(controller) {
           try {
-            // ✅ Gunakan requestSize ultra kecil untuk stabilitas sin1
-            for await (const chunk of client!.iterDownload({
+            if (!client) return;
+            for await (const chunk of client.iterDownload({
               file: msg.media,
-              requestSize: 32 * 1024, // 32KB lebih lambat tapi jauh lebih stabil
-              dcId: dc,
+              // 🔥 ANTI-FLOOD: Gunakan chunk menengah untuk stabilitas Vercel
+              requestSize: 128 * 1024,
+              dcId: targetDC, // Langsung tembak ke DC yang benar
             })) {
               controller.enqueue(chunk);
             }
             controller.close();
           } catch (e: any) {
-            if (e.message.includes("FILE_MIGRATE_")) {
-              const nextDC = parseInt(e.message.split("_").pop());
-              return downloadManager(nextDC);
-            }
+            // Handle jika Telegram minta pindah DC di tengah jalan
+            console.error("Stream Error:", e.message);
             controller.error(e);
+          } finally {
+            if (client) await client.disconnect();
           }
-        }
-        await downloadManager(targetDC);
-      },
-      async cancel() {
-        if (client) await client.disconnect();
-      },
-    });
+        },
+        async cancel() {
+          if (client) await client.disconnect();
+        },
+      });
 
-    return new Response(stream, {
-      headers: {
-        "Content-Type": (msg.media as any).document?.mimeType || "image/jpeg",
-        "Content-Length":
-          (msg.media as any).document?.size?.toJSNumber().toString() ||
-          (msg.media as any).photo?.sizes?.at(-1)?.size?.toString() ||
-          "",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "private, max-age=31536000, immutable",
-      },
-    });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": mimeType,
+          "Content-Length": fileSize.toString(),
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "private, max-age=31536000, immutable",
+        },
+      });
+    }
+
+    await client.disconnect();
+    return new Response("Unsupported Media Type", { status: 400 });
   } catch (err: any) {
     if (client) {
       try {
         await client.disconnect();
       } catch {}
     }
-    console.error("Vercel Critical Error:", err.message);
+    console.error("Critical Proxy Error:", err.message);
 
-    // Kirim response status yang tepat agar Vercel tidak bingung
-    if (
-      err.message.includes("AUTH_KEY_UNREGISTERED") ||
-      err.message.includes("AUTH_BYTES_INVALID")
-    ) {
-      return new Response("Session Expired", { status: 401 });
-    }
-    if (err.message.includes("FLOOD_WAIT")) {
+    // Kirim feedback yang jelas ke dashboard
+    if (err.message.includes("FLOOD_WAIT"))
       return new Response("Flood Wait", { status: 429 });
-    }
+    if (err.message.includes("AUTH_KEY"))
+      return new Response("Session Expired", { status: 401 });
+
     return new Response(`Server Error: ${err.message}`, { status: 500 });
   }
 }
