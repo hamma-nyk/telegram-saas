@@ -66,25 +66,46 @@ export async function GET(req: NextRequest) {
     // 5. Resolusi Jalur DC (Data Center) ke Channel Tujuan
     const entity = await client.getEntity(channelId);
 
-    // 6. Tarik Pesan Foto
+    // 🔥 FIX 1: Tentukan limit pencarian mentah (Deep Scan)
+    const FETCH_LIMIT = 8;
+
+    // 6. Tarik Pesan Mentah (Diperluas untuk melewati pesan teks/sistem)
     const messages = await client.getMessages(entity, {
-      limit: 8, // Diturunkan agar lebih ringan di Vercel/Node 22
+      limit: FETCH_LIMIT,
       offsetId: offsetId,
-      filter: new Api.InputMessagesFilterPhotos(),
     });
 
-    // 7. Mapping Data untuk Frontend
+    // 7. Mapping & Filter Data untuk Frontend (Hanya loloskan Foto & Video)
     const photos = messages
-      .filter((msg) => !msg.message?.toLowerCase().includes("deleted"))
-      .map((msg) => ({
-        id: msg.id,
-        caption: msg.message || "",
-        // Mengarah ke Proxy Media yang mendukung Auto-DC
-        url: `/api/telegram/media/${msg.id}?chatId=${channelId}`,
-        date: msg.date,
-      }));
+      .filter((msg) => {
+        // Abaikan jika tidak ada media atau sudah di-soft-delete
+        if (!msg.media || msg.message?.toLowerCase().includes("deleted"))
+          return false;
 
-    // 8. Tentukan ID Terakhir untuk fitur "Muat Lebih Banyak"
+        // Hanya loloskan tipe Foto ATAU Video
+        const isPhoto = msg.media instanceof Api.MessageMediaPhoto;
+        const isVideo =
+          msg.media instanceof Api.MessageMediaDocument &&
+          msg.media.document.mimeType.includes("video");
+
+        return isPhoto || isVideo;
+      })
+      .map((msg) => {
+        // Deteksi ulang untuk memberi label ke frontend
+        const isVideo =
+          msg.media instanceof Api.MessageMediaDocument &&
+          msg.media.document.mimeType.includes("video");
+
+        return {
+          id: msg.id,
+          type: isVideo ? "video" : "photo", // Properti krusial untuk grid
+          caption: msg.message || "",
+          url: `/api/telegram/media/${msg.id}?chatId=${channelId}`,
+          date: msg.date,
+        };
+      });
+
+    // 8. Tentukan ID Terakhir untuk offset request berikutnya
     const lastId = messages.length > 0 ? messages[messages.length - 1].id : 0;
 
     await client.disconnect();
@@ -93,6 +114,8 @@ export async function GET(req: NextRequest) {
       success: true,
       photos,
       lastId,
+      // 🔥 FIX 2: Backend yang menilai apakah antrean di Telegram benar-benar sudah habis
+      hasMore: messages.length >= FETCH_LIMIT,
     });
   } catch (error: any) {
     if (client) await client.disconnect();

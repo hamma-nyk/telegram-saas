@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Folder,
   Plus,
@@ -14,6 +14,7 @@ import {
   Loader2,
   AlertCircle,
   Album,
+  Play,
 } from "lucide-react";
 
 export default function AlbumManager() {
@@ -39,21 +40,39 @@ export default function AlbumManager() {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+  const [fullscreenVideo, setFullscreenVideo] = useState<string | null>(null);
+
+  // 🔥 SNIPER: Alat untuk membatalkan fetch secara spesifik dan aman
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetchSavedAlbums();
   }, []);
 
   const fetchSavedAlbums = async () => {
-    const res = await fetch("/api/telegram/albums");
-    const data = await res.json();
-    if (data.success) {
-      setSavedAlbums(data.albums);
-      setSelectedChannelIds(data.albums.map((a: any) => a.id));
+    try {
+      const res = await fetch("/api/telegram/albums");
+      if (!res.ok) throw new Error("Gagal mengambil data album");
+      const data = await res.json();
+      if (data.success) {
+        setSavedAlbums(data.albums);
+        setSelectedChannelIds(data.albums.map((a: any) => a.id));
+      }
+    } catch (error) {
+      console.error(error);
     }
   };
 
   const openAlbum = async (album: any, isLoadMore = false) => {
+    // 🔥 BATALKAN REQUEST LAMA: Jika ada request sebelumnya yang masih berjalan, tembak mati!
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Buat peluru (signal) baru untuk request yang akan dijalankan ini
+    const newController = new AbortController();
+    abortControllerRef.current = newController;
+
     if (!isLoadMore) {
       setActiveAlbum(album);
       setIsLoadingPhotos(true);
@@ -67,9 +86,14 @@ export default function AlbumManager() {
     const offset = isLoadMore ? lastId : 0;
 
     try {
+      // Gunakan relative path & sisipkan signal AbortController
       const res = await fetch(
         `/api/telegram/album-media?id=${album.id}&offset=${offset}`,
+        { signal: newController.signal },
       );
+
+      if (!res.ok) throw new Error("Gagal mengambil data media");
+
       const data = await res.json();
 
       if (data.success) {
@@ -77,22 +101,34 @@ export default function AlbumManager() {
         for (let i = 0; i < data.photos.length; i++) {
           const photo = data.photos[i];
 
-          // 1. Masukkan foto ke dalam state photos
-          setPhotos((prev) => [...prev, photo]);
+          // 1. Masukkan foto ke dalam state photos (dengan proteksi duplikasi)
+          setPhotos((prev) => {
+            if (prev.find((p) => p.id === photo.id)) return prev;
+            return [...prev, photo];
+          });
 
-          // 2. Berikan jeda waktu (misal 500ms - 1 detik) sebelum load foto berikutnya
-          // Agar Telegram melihat ini sebagai aktivitas manusia yang sedang melihat-lihat
+          // 2. Berikan jeda waktu (misal 800ms) sebelum load foto berikutnya
           await new Promise((resolve) => setTimeout(resolve, 800));
         }
 
         setLastId(data.lastId);
-        if (data.photos.length < 8) setHasMore(false);
+        // Sesuaikan dengan limit backend (8)
+        setHasMore(data.hasMore);
       }
-    } catch (err) {
-      console.error("Gagal muat foto:", err);
-    } finally {
+
+      // Matikan loading hanya jika sukses
       setIsLoadingPhotos(false);
       setIsLoadingMore(false);
+    } catch (err: any) {
+      // Abaikan jika error disebabkan oleh sengaja dibatalkan (AbortController)
+      if (err.name === "AbortError") {
+        console.log("Fetch dihentikan secara aman oleh sistem.");
+      } else {
+        console.error("Gagal muat foto:", err);
+        // Matikan loading jika gagal karena error jaringan betulan
+        setIsLoadingPhotos(false);
+        setIsLoadingMore(false);
+      }
     }
   };
 
@@ -198,7 +234,13 @@ export default function AlbumManager() {
     return (
       <div className="rounded-3xl bg-white p-8 border border-gray-100 shadow-sm min-h-[500px] relative">
         <button
-          onClick={() => setActiveAlbum(null)}
+          onClick={() => {
+            // 🔥 Hentikan loading saat komandan menekan kembali
+            if (abortControllerRef.current) {
+              abortControllerRef.current.abort();
+            }
+            setActiveAlbum(null);
+          }}
           className="flex items-center gap-2 text-sm font-bold text-blue-600 mb-6 hover:text-blue-800 transition group"
         >
           <ArrowLeft
@@ -228,14 +270,14 @@ export default function AlbumManager() {
           <div className="flex-1 w-full relative">
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
               className="absolute inset-0 opacity-0 cursor-pointer z-10"
               required
             />
             <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-500">
               <Upload size={16} className="text-blue-600" />
-              {uploadFile ? uploadFile.name : "Pilih foto..."}
+              {uploadFile ? uploadFile.name : "Pilih foto/video..."}
             </div>
           </div>
           <input
@@ -277,32 +319,55 @@ export default function AlbumManager() {
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {photos.map((p, index) => {
+                const isVideo = p.type === "video";
                 const cleanCaption = p.caption
                   ? p.caption.replace(/(\s*\|\s*show\s*)/gi, "")
                   : "-";
                 return (
                   <div
-                    key={`container-${p.id}-${index}`} // Key unik agar React tidak bingung
+                    key={`container-${p.id}-${index}`}
                     className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm relative group aspect-square animate-in fade-in zoom-in duration-500"
                   >
-                    <img
-                      key={`img-${p.id}`}
-                      src={p.url}
-                      alt="Media"
-                      loading="lazy"
-                      // Fitur Anti-Glitch: Jika gagal load, browser akan coba refresh src sekali lagi
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (!target.src.includes("retry=1")) {
-                          target.src = `${p.url}&retry=1`;
-                        }
-                      }}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
+                    {isVideo ? (
+                      <div className="relative w-full h-full bg-black">
+                        <video
+                          src={p.url}
+                          className="w-full h-full object-cover opacity-60"
+                          preload="metadata"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+                            <Play size={24} fill="currentColor" />
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setFullscreenVideo(p.url)}
+                          className="absolute inset-0 z-10"
+                        />
+                      </div>
+                    ) : (
+                      <img
+                        key={`img-${p.id}`}
+                        src={p.url}
+                        alt="Media"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (!target.src.includes("retry=1")) {
+                            target.src = `${p.url}&retry=1`;
+                          }
+                        }}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      />
+                    )}
 
                     <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                       <button
-                        onClick={() => setFullscreenImage(p.url)}
+                        onClick={() =>
+                          isVideo
+                            ? setFullscreenVideo(p.url)
+                            : setFullscreenImage(p.url)
+                        }
                         className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 hover:text-white transition-all transform hover:scale-110"
                       >
                         <Maximize2 size={18} />
@@ -315,7 +380,7 @@ export default function AlbumManager() {
                       </button>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12 text-white">
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12 text-white pointer-events-none">
                       <p className="text-xs font-bold leading-relaxed truncate">
                         {cleanCaption || "-"}
                       </p>
@@ -352,7 +417,7 @@ export default function AlbumManager() {
           </>
         )}
 
-        {/* Modal Fullscreen */}
+        {/* Modal Fullscreen Image */}
         {fullscreenImage && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm animate-in fade-in duration-300">
             <button
@@ -365,6 +430,24 @@ export default function AlbumManager() {
               src={fullscreenImage}
               className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
               alt="Fullscreen Media"
+            />
+          </div>
+        )}
+
+        {/* Modal Fullscreen Video */}
+        {fullscreenVideo && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md animate-in fade-in duration-300">
+            <button
+              onClick={() => setFullscreenVideo(null)}
+              className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full text-white hover:bg-red-600 transition flex items-center justify-center z-50"
+            >
+              <X size={24} />
+            </button>
+            <video
+              src={fullscreenVideo}
+              controls
+              autoPlay
+              className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
             />
           </div>
         )}

@@ -39,7 +39,7 @@ export async function GET(
       {
         connectionRetries: 5,
         useWSS: true,
-        timeout: 20000, // Menambah napas untuk koneksi Cloud
+        timeout: 20000,
       },
     );
 
@@ -78,7 +78,7 @@ export async function GET(
       });
     }
 
-    // --- LOGIKA PENANGANAN MUSIK (STREAMING) ---
+    // --- LOGIKA PENANGANAN MUSIK & VIDEO (STREAMING) ---
     if (msg.media instanceof Api.MessageMediaDocument) {
       const doc = msg.media.document as Api.Document;
       const mimeType = doc.mimeType || "audio/mpeg";
@@ -86,26 +86,47 @@ export async function GET(
 
       const stream = new ReadableStream({
         async start(controller) {
+          // 🔥 BACKEND KILL SWITCH: Memantau sinyal batal dari browser
+          const onAbort = async () => {
+            console.log(
+              "Browser memutus koneksi! Menembak mati sesi Telegram...",
+            );
+            if (client) await client.disconnect();
+          };
+
+          // Pasang sensor pendeteksi jika user menutup video/halaman
+          req.signal.addEventListener("abort", onAbort);
+
           try {
             if (!client) return;
             for await (const chunk of client.iterDownload({
               file: msg.media,
-              // 🔥 ANTI-FLOOD: Gunakan chunk menengah untuk stabilitas Vercel
-              requestSize: 128 * 1024,
-              dcId: targetDC, // Langsung tembak ke DC yang benar
+              // Naikkan sedikit ke 256KB agar buffering video lebih mulus
+              requestSize: 256 * 1024,
+              dcId: targetDC,
             })) {
+              // Hentikan pengiriman chunk jika browser sudah menolak menerima
+              if (req.signal.aborted) {
+                console.log("Streaming dibatalkan di tengah jalan.");
+                break;
+              }
               controller.enqueue(chunk);
             }
-            controller.close();
+            if (!req.signal.aborted) controller.close();
           } catch (e: any) {
-            // Handle jika Telegram minta pindah DC di tengah jalan
-            console.error("Stream Error:", e.message);
-            controller.error(e);
+            // Jangan cetak error jika memang sengaja dibunuh oleh Kill Switch
+            if (!req.signal.aborted) {
+              console.error("Stream Error:", e.message);
+              controller.error(e);
+            }
           } finally {
+            // Bersihkan sensor dan pastikan Telegram terputus
+            req.signal.removeEventListener("abort", onAbort);
             if (client) await client.disconnect();
           }
         },
         async cancel() {
+          // Fallback ekstra untuk pembatalan stream
           if (client) await client.disconnect();
         },
       });
@@ -128,6 +149,12 @@ export async function GET(
         await client.disconnect();
       } catch {}
     }
+
+    // Cegah pencetakan log error panik jika hanya karena aborted
+    if (req.signal.aborted) {
+      return new Response("Request Aborted", { status: 499 });
+    }
+
     console.error("Critical Proxy Error:", err.message);
 
     // Kirim feedback yang jelas ke dashboard
