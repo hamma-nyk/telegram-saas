@@ -86,6 +86,7 @@ export async function GET(req: NextRequest) {
         const isPhoto = msg.media instanceof Api.MessageMediaPhoto;
         const isVideo =
           msg.media instanceof Api.MessageMediaDocument &&
+          msg.media.document instanceof Api.Document &&
           msg.media.document.mimeType.includes("video");
 
         return isPhoto || isVideo;
@@ -94,6 +95,7 @@ export async function GET(req: NextRequest) {
         // Deteksi ulang untuk memberi label ke frontend
         const isVideo =
           msg.media instanceof Api.MessageMediaDocument &&
+          msg.media.document instanceof Api.Document &&
           msg.media.document.mimeType.includes("video");
 
         return {
