@@ -18,25 +18,28 @@ export const connectMongoDB = async () => {
   }
 
   if (!cached.promise) {
-    // KITA MASUKKAN SETTINGAN DARI ATLAS KE SINI
     const opts = {
       bufferCommands: false,
+      maxPoolSize: 10, // 🔥 Connection pooling untuk MongoDB
+      minPoolSize: 2,
+      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 5000,
       serverApi: { 
         version: '1', 
         strict: true, 
         deprecationErrors: true 
-      } as any // Tambahkan 'as any' agar TypeScript tidak protes
+      } as any
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      console.log("✅ Terhubung ke MongoDB Atlas Cluster dengan Stable API");
+      console.log("✅ Terhubung ke MongoDB Atlas dengan Connection Pool");
       return mongoose;
     });
   }
   
   try {
     cached.conn = await cached.promise;
-    // Opsi tambahan untuk memastikan koneksi benar-benar tembus (seperti perintah 'ping' di Atlas)
+    // Ping database untuk memastikan koneksi aktif
     await mongoose.connection.db?.admin().command({ ping: 1 });
   } catch (e) {
     cached.promise = null;
@@ -46,3 +49,34 @@ export const connectMongoDB = async () => {
 
   return cached.conn;
 };
+
+/**
+ * 🔥 OPTIMIZED: Query Helper dengan lean() default
+ */
+export async function findUserById(id: string) {
+  return await mongoose.model('User').findById(id)
+    .select('telegramSession telegramConnected')
+    .lean()
+    .exec();
+}
+
+/**
+ * 📊 Database Health Check
+ */
+export async function checkDatabaseHealth() {
+  try {
+    await connectMongoDB();
+    const adminResult = await mongoose.connection.db?.admin().ping();
+    
+    return {
+      healthy: true,
+      latency: 0,
+      poolSize: mongoose.connection.getClient().topology?.s?.pool?.totalConnectionCount || 0,
+    };
+  } catch (error: any) {
+    return {
+      healthy: false,
+      error: error.message,
+    };
+  }
+}

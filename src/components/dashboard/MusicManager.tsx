@@ -67,17 +67,17 @@ export default function MusicManager({ setPlayerState }: any) {
       const data = await res.json();
 
       if (data.success) {
-        // 🔥 SERIAL LOADING: Masukkan lagu satu-satu untuk visual yang bagus
-        for (const newSong of data.songs) {
-          setSongs((prev) => {
-            if (prev.find((s) => s.id === newSong.id)) return prev;
-            return [...prev, newSong];
-          });
-          if (!isLoadMore) await new Promise((r) => setTimeout(r, 50));
-        }
+        // 🔥 OPTIMIZED BATCH LOADING: Load semua sekaligus
+        // Backend sudah menggunakan connection pool untuk performa maksimal
+        setSongs((prev) => {
+          const newSongs = data.songs.filter(
+            (song: any) => !prev.find((s) => s.id === song.id)
+          );
+          return [...prev, ...newSongs];
+        });
 
         setLastId(data.lastId);
-        if (data.songs.length < 8) setHasMore(false);
+        setHasMore(data.songs.length >= 20); // Sesuai dengan limit backend
       }
     } catch (err) {
       console.error("Gagal load music:", err);

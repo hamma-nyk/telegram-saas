@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
-import { TelegramClient } from "telegram";
-import { StringSession } from "telegram/sessions";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import { executeTelegramOperation } from "@/lib/telegramPool";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Ambil sesi Telegram dari MongoDB
     await connectMongoDB();
-    const userDB = await User.findById(sessionApp.user.id);
+    const userDB = await User.findById(sessionApp.user.id).select("telegramSession").lean();
     if (!userDB || !userDB.telegramSession) {
       return NextResponse.json({ error: "Akun Telegram belum terhubung." }, { status: 403 });
     }
@@ -27,17 +26,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Target chat dan pesan wajib diisi." }, { status: 400 });
     }
 
-    // 4. Konek GramJS dan Kirim Pesan
+    // 4. Konek GramJS dan Kirim Pesan menggunakan Connection Pool
     const apiId = parseInt(process.env.TELEGRAM_API_ID || "0");
     const apiHash = process.env.TELEGRAM_API_HASH || "";
-    const client = new TelegramClient(new StringSession(userDB.telegramSession), apiId, apiHash, { connectionRetries: 5 });
 
-    await client.connect();
-    
-    // Mengeksekusi pengiriman pesan teks
-    await client.sendMessage(target, { message: message });
-    
-    await client.disconnect();
+    await executeTelegramOperation(
+      userDB.telegramSession,
+      apiId,
+      apiHash,
+      async (client) => {
+        // Mengeksekusi pengiriman pesan teks
+        await client.sendMessage(target, { message: message });
+      }
+    );
 
     return NextResponse.json({ success: true, message: "Pesan berhasil terkirim!" });
   } catch (error: any) {

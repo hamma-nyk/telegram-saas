@@ -97,22 +97,16 @@ export default function AlbumManager() {
       const data = await res.json();
 
       if (data.success) {
-        // 🔥 TAKTIK GANTIAN (SERIAL LOADING DENGAN JEDA)
-        for (let i = 0; i < data.photos.length; i++) {
-          const photo = data.photos[i];
-
-          // 1. Masukkan foto ke dalam state photos (dengan proteksi duplikasi)
-          setPhotos((prev) => {
-            if (prev.find((p) => p.id === photo.id)) return prev;
-            return [...prev, photo];
-          });
-
-          // 2. Berikan jeda waktu (misal 800ms) sebelum load foto berikutnya
-          await new Promise((resolve) => setTimeout(resolve, 800));
-        }
+        // 🔥 OPTIMIZED BATCH LOADING: Load semua sekaligus tanpa delay artificial
+        // Backend sudah dioptimasi dengan connection pool dan caching
+        setPhotos((prev) => {
+          const newPhotos = data.photos.filter(
+            (photo: any) => !prev.find((p) => p.id === photo.id)
+          );
+          return [...prev, ...newPhotos];
+        });
 
         setLastId(data.lastId);
-        // Sesuaikan dengan limit backend (8)
         setHasMore(data.hasMore);
       }
 
