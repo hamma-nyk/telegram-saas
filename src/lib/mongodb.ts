@@ -66,12 +66,16 @@ export async function findUserById(id: string) {
 export async function checkDatabaseHealth() {
   try {
     await connectMongoDB();
-    const adminResult = await mongoose.connection.db?.admin().ping();
+    await mongoose.connection.db?.admin().ping();
+    
+    // Get connection count safely
+    const client = mongoose.connection.getClient() as any;
+    const poolSize = client?.topology?.s?.pool?.totalConnectionCount || 0;
     
     return {
       healthy: true,
       latency: 0,
-      poolSize: mongoose.connection.getClient().topology?.s?.pool?.totalConnectionCount || 0,
+      poolSize: poolSize,
     };
   } catch (error: any) {
     return {

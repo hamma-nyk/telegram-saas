@@ -100,7 +100,6 @@ class TelegramConnectionPool {
         autoReconnect: false, // Kita handle manual
         timeout: 30000,
         floodSleepThreshold: 0, // Kita handle flood wait manual
-        dcId: dcId,
       }
     );
 

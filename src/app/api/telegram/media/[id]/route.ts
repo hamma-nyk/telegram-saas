@@ -39,7 +39,7 @@ export async function GET(
     const cachedThumbnail = thumbnailCache.get(cacheKey);
     if (cachedThumbnail) {
       console.log("✅ Thumbnail cache hit:", cacheKey);
-      return new Response(cachedThumbnail, {
+      return new Response(cachedThumbnail as any, {
         headers: {
           "Content-Type": "image/jpeg",
           "Content-Length": cachedThumbnail.length.toString(),
