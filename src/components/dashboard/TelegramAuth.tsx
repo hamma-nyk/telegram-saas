@@ -25,10 +25,22 @@ export default function TelegramAuth() {
   const [statusText, setStatusText] = useState("");
   const [requires2FA, setRequires2FA] = useState(false);
   const [cloudPassword, setCloudPassword] = useState("");
+  const [profileData, setProfileData] = useState<any>(null);
 
   useEffect(() => {
     return () => eventSourceRef.current?.close();
   }, []);
+
+  useEffect(() => {
+    if (session?.user?.telegramConnected) {
+      fetch("/api/telegram/me")
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.error) setProfileData(data);
+        })
+        .catch(console.error);
+    }
+  }, [session?.user?.telegramConnected]);
 
   const handleLogoutTelegram = async () => {
     const isConfirm = confirm(
@@ -109,71 +121,90 @@ export default function TelegramAuth() {
 
   // --- TAMPILAN JIKA SUDAH TERHUBUNG ---
   if (session?.user?.telegramConnected) {
+    const initials = profileData
+      ? `${profileData.firstName?.[0] || ""}${profileData.lastName?.[0] || ""}`
+      : "TG";
+
     return (
-      <div className="rounded-3xl bg-white p-8 border border-gray-100 shadow-sm animate-in fade-in duration-500">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-emerald-50 text-emerald-600 shadow-inner border border-emerald-100">
-              <ShieldCheck size={32} />
+      <div className="rounded-xl bg-card p-6 border border-border shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-5 w-full md:w-auto">
+          {/* Avatar / Icon */}
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground text-xl font-bold uppercase">
+            {initials}
+          </div>
+          
+          {/* Details */}
+          <div className="flex flex-col">
+            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              {profileData?.firstName} {profileData?.lastName || ""}
+              <ShieldCheck className="h-5 w-5 text-primary" />
+            </h2>
+            
+            <div className="mt-1 flex flex-col sm:flex-row sm:flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {profileData?.username && (
+                <span className="flex items-center gap-1">
+                  <span className="font-medium text-foreground">@</span>{profileData.username}
+                </span>
+              )}
+              {profileData?.phone && (
+                <span className="flex items-center gap-1">
+                  <Smartphone className="h-3.5 w-3.5" /> +{profileData.phone}
+                </span>
+              )}
+              {profileData?.id && (
+                <span className="flex items-center gap-1">
+                  ID: {profileData.id}
+                </span>
+              )}
             </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Telegram Terhubung
-              </h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <p className="text-emerald-700 text-xs font-bold uppercase tracking-widest">
-                  Sesi Aktif & Aman
-                </p>
-              </div>
+            
+            <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-semibold text-foreground w-fit">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Sesi Aktif
             </div>
           </div>
-          <button
-            onClick={handleLogoutTelegram}
-            className="group w-full md:w-auto px-6 py-3.5 rounded-2xl bg-rose-50 text-rose-600 text-xs font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all border border-rose-100 flex items-center justify-center gap-2"
-          >
-            <LogOut
-              size={16}
-              className="group-hover:-translate-x-1 transition-transform"
-            />
-            Putuskan Koneksi
-          </button>
         </div>
+
+        {/* Action */}
+        <button
+          onClick={handleLogoutTelegram}
+          className="w-full md:w-auto px-4 py-2 h-10 rounded-md border border-input bg-background hover:bg-destructive hover:text-destructive-foreground transition-colors text-sm font-medium flex items-center justify-center gap-2 text-foreground whitespace-nowrap"
+        >
+          <LogOut size={16} />
+          Putuskan Koneksi
+        </button>
       </div>
     );
   }
 
   // --- TAMPILAN JIKA BELUM TERHUBUNG ---
   return (
-    <div className="rounded-[2.5rem] bg-white p-10 text-center border border-gray-100 shadow-sm overflow-hidden relative">
+    <div className="rounded-lg bg-card p-10 text-center border border-border shadow-sm overflow-hidden relative">
       {!qrUrl && !loadingQr && !requires2FA && (
-        <div className="mx-auto max-w-sm animate-in zoom-in-95 duration-300">
-          <div className="mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-blue-50 text-blue-600 border border-blue-100 shadow-inner">
+        <div className="mx-auto max-w-sm">
+          <div className="mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-md bg-accent text-accent-foreground border border-border">
             <Smartphone size={40} strokeWidth={1.5} />
           </div>
-          <h3 className="mb-3 text-2xl font-black text-slate-900 tracking-tighter">
+          <h3 className="mb-3 text-2xl font-bold text-foreground tracking-tight">
             OTORISASI TELEGRAM
           </h3>
-          <p className="mb-10 text-sm text-slate-400 font-medium leading-relaxed italic">
+          <p className="mb-10 text-sm text-muted-foreground">
             Hubungkan akun Anda untuk mengaktifkan fitur sinkronisasi album
             otomatis.
           </p>
           <div className="space-y-4">
             <button
               onClick={handleGenerateQR}
-              className="group w-full flex items-center justify-center gap-3 rounded-2xl bg-blue-600 px-8 py-5 text-sm font-black text-white hover:bg-slate-900 shadow-xl shadow-blue-100 transition-all active:scale-95"
+              className="w-full flex items-center justify-center gap-3 rounded-md bg-primary px-8 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <QrCode size={20} />
               KONEKSIKAN VIA QR
             </button>
             <button
               onClick={forceSync}
-              className="group w-full flex items-center justify-center gap-3 rounded-2xl bg-slate-50 px-8 py-5 text-sm font-black text-slate-500 hover:bg-slate-100 transition border border-slate-200"
+              className="w-full flex items-center justify-center gap-3 rounded-md border border-input bg-background px-8 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
             >
-              <RefreshCw
-                size={18}
-                className="group-hover:rotate-180 transition-transform duration-500"
-              />
+              <RefreshCw size={18} />
               SINKRONKAN MANUAL
             </button>
           </div>
@@ -181,25 +212,25 @@ export default function TelegramAuth() {
       )}
 
       {loadingQr && !requires2FA && !qrUrl && (
-        <div className="py-20 animate-in fade-in">
+        <div className="py-20">
           <Loader2
             size={48}
-            className="mx-auto mb-6 text-blue-600 animate-spin"
+            className="mx-auto mb-6 text-muted-foreground animate-spin"
           />
-          <p className="text-xs font-black text-blue-600 uppercase tracking-[0.3em] animate-pulse">
+          <p className="text-sm font-medium text-muted-foreground">
             {statusText}
           </p>
         </div>
       )}
 
       {qrUrl && !requires2FA && (
-        <div className="mx-auto max-w-xs py-4 animate-in slide-in-from-bottom-5 duration-500">
-          <div className="overflow-hidden rounded-[2.5rem] bg-white p-6 shadow-2xl border border-slate-100 mb-8 ring-8 ring-slate-50">
+        <div className="mx-auto max-w-xs py-4">
+          <div className="overflow-hidden rounded-md bg-white p-6 border border-border mb-8">
             <QRCodeSVG value={qrUrl} size={256} className="w-full h-auto" />
           </div>
           <div className="flex items-center justify-center gap-2 mb-6">
-            <CheckCircle2 size={16} className="text-emerald-500" />
-            <p className="font-black text-[10px] text-blue-600 uppercase tracking-widest">
+            <CheckCircle2 size={16} className="text-primary" />
+            <p className="text-sm font-medium text-foreground">
               {statusText}
             </p>
           </div>
@@ -209,25 +240,25 @@ export default function TelegramAuth() {
               setQrUrl("");
               setLoadingQr(false);
             }}
-            className="group flex items-center justify-center gap-2 mx-auto text-xs font-black text-slate-400 hover:text-rose-600 transition-colors uppercase tracking-widest"
+            className="flex items-center justify-center gap-2 mx-auto text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            <XCircle size={14} />
+            <XCircle size={16} />
             BATALKAN PROSES
           </button>
         </div>
       )}
 
       {requires2FA && (
-        <div className="mx-auto max-w-xs space-y-6 py-4 animate-in zoom-in-95">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-amber-50 text-amber-600 border border-amber-100 shadow-inner">
+        <div className="mx-auto max-w-xs space-y-6 py-4">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-md bg-accent text-accent-foreground border border-border">
             <Lock size={32} />
           </div>
           <div>
-            <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">
+            <h3 className="text-xl font-bold text-foreground tracking-tight">
               Cloud Password
             </h3>
-            <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
-              <AlertCircle size={12} /> {statusText}
+            <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+              <AlertCircle size={14} /> {statusText}
             </p>
           </div>
           <input
@@ -235,12 +266,12 @@ export default function TelegramAuth() {
             value={cloudPassword}
             onChange={(e) => setCloudPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center text-xl font-black tracking-[0.5em] focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all shadow-inner placeholder:tracking-normal placeholder:text-slate-300"
+            className="w-full rounded-md border border-input bg-background p-3 text-center text-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-input transition-colors text-foreground"
           />
           <button
             onClick={submit2FA}
             disabled={!cloudPassword}
-            className="w-full rounded-2xl bg-slate-900 py-5 font-black text-xs text-white uppercase tracking-[0.2em] hover:bg-blue-600 disabled:bg-slate-200 shadow-xl transition-all active:scale-95"
+            className="w-full rounded-md bg-primary py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             VERIFIKASI SEKARANG
           </button>

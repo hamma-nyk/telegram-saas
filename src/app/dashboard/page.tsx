@@ -18,6 +18,7 @@ import {
   SkipForward,
   Play,
   Pause,
+  Menu,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   // --- UI & NAVIGATION STATES ---
   const [activeMenu, setActiveMenu] = useState("auth");
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // --- MUSIC PLAYER STATES ---
   const [isPlaying, setIsPlaying] = useState(false);
@@ -146,20 +148,28 @@ export default function DashboardPage() {
   const isConnected = session.user?.telegramConnected;
 
   return (
-    <div className="flex h-screen bg-[#F7F9FC] font-sans text-gray-800 tracking-wide overflow-hidden relative">
+    <div className="flex h-screen bg-background font-sans text-foreground tracking-normal overflow-hidden relative">
       {/* SIDEBAR */}
       <Sidebar
         activeMenu={activeMenu}
         setActiveMenu={setActiveMenu}
         session={session}
         isConnected={isConnected}
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen}
       />
 
       {/* KONTEN UTAMA */}
-      <main className="flex-1 overflow-y-auto p-8 md:p-12 relative">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 relative">
         <div className="max-w-4xl mx-auto">
-          <header className="mb-10">
-            <h2 className="text-3xl font-extrabold text-gray-900 italic uppercase tracking-tighter">
+          <header className="mb-6 md:mb-10 flex items-center gap-4">
+            <button
+              className="md:hidden text-foreground p-2 -ml-2 rounded-md hover:bg-accent"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <Menu size={24} />
+            </button>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
               {activeMenu === "auth" && "System Authorization"}
               {activeMenu === "send-msg" && "Quick Message"}
               {activeMenu === "album" && "Cloud Photo Album"}
@@ -196,20 +206,20 @@ export default function DashboardPage() {
       {playerState && isPlayerVisible && (
         <div
           onMouseDown={handleDrag}
-          className="fixed z-[999] w-80 bg-white/95 backdrop-blur-2xl border border-purple-100 shadow-2xl rounded-3xl overflow-hidden select-none animate-slide-up"
-          style={{ top: "100px", right: "24px" }}
+          className="fixed z-[999] w-[calc(100vw-2rem)] sm:w-80 bg-card border border-border shadow-md rounded-lg overflow-hidden select-none animate-slide-up"
+          style={{ top: "100px", right: "16px", touchAction: "none" }}
         >
           {/* Header */}
-          <div className="bg-purple-600 p-4 text-white flex items-center justify-between">
+          <div className="bg-muted p-4 text-muted-foreground flex items-center justify-between border-b border-border">
             <div className="flex items-center gap-3 overflow-hidden">
-              <Disc size={18} className="animate-spin-slow flex-shrink-0" />
-              <p className="text-[11px] font-bold truncate">
+              <Disc size={18} className="animate-spin-slow flex-shrink-0 text-foreground" />
+              <p className="text-sm font-medium truncate text-foreground">
                 {playerState.playlist[playerState.currentIndex].title}
               </p>
             </div>
             <button
               onClick={() => setIsPlayerVisible(false)}
-              className="hover:bg-white/20 p-1 rounded-lg transition"
+              className="hover:bg-accent hover:text-accent-foreground p-1 rounded-md transition-colors"
             >
               <ChevronDown size={18} />
             </button>
@@ -221,7 +231,7 @@ export default function DashboardPage() {
               {/* Tombol Previous */}
               <button
                 onClick={playPrev}
-                className="text-purple-400 hover:text-purple-600 transition-all"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <SkipBack size={22} fill="currentColor" />
               </button>
@@ -229,19 +239,19 @@ export default function DashboardPage() {
               {/* TOMBOL UTAMA: PLAY / PAUSE */}
               <button
                 onClick={togglePlay}
-                className="w-14 h-14 bg-purple-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-purple-200 hover:scale-110 active:scale-95 transition-all"
+                className="w-12 h-12 bg-primary text-primary-foreground rounded-md flex items-center justify-center hover:bg-primary/90 transition-colors"
               >
                 {isPlaying ? (
-                  <Pause size={28} fill="currentColor" />
+                  <Pause size={24} fill="currentColor" />
                 ) : (
-                  <Play size={28} fill="currentColor" className="ml-1" />
+                  <Play size={24} fill="currentColor" className="ml-1" />
                 )}
               </button>
 
               {/* Tombol Next */}
               <button
                 onClick={playNext}
-                className="text-purple-400 hover:text-purple-600 transition-all"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <SkipForward size={22} fill="currentColor" />
               </button>
@@ -251,10 +261,10 @@ export default function DashboardPage() {
             <div className="flex justify-center mt-2">
               <button
                 onClick={() => setIsRepeat(!isRepeat)}
-                className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black transition-all ${
+                className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                   isRepeat
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-100 text-gray-400"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
                 }`}
               >
                 <Repeat size={12} /> REPEAT {isRepeat ? "ON" : "OFF"}
@@ -269,9 +279,9 @@ export default function DashboardPage() {
                 max={duration || 0}
                 value={currentTime}
                 onChange={handleSeek}
-                className="w-full h-1.5 bg-purple-100 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                className="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
               />
-              <div className="flex justify-between text-[10px] font-bold text-gray-400">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>
                   {new Date(currentTime * 1000).toISOString().substr(14, 5)}
                 </span>
@@ -282,8 +292,8 @@ export default function DashboardPage() {
             </div>
 
             {/* VOLUME CONTROL */}
-            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-2xl">
-              <Music size={14} className="text-purple-400" />
+            <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-md">
+              <Music size={14} className="text-muted-foreground" />
               <input
                 type="range"
                 min="0"
@@ -291,7 +301,7 @@ export default function DashboardPage() {
                 step="0.01"
                 value={volume}
                 onChange={handleVolumeChange}
-                className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-400"
+                className="flex-1 h-1 bg-muted-foreground/30 rounded-full appearance-none cursor-pointer accent-primary"
               />
             </div>
           </div>
@@ -302,9 +312,9 @@ export default function DashboardPage() {
       {!isPlayerVisible && (
         <button
           onClick={() => setIsPlayerVisible(true)}
-          className="fixed bottom-8 right-8 z-[1000] w-16 h-16 bg-purple-600 text-white rounded-full shadow-[0_20px_50px_rgba(147,51,234,0.3)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-4 border-white animate-bounce"
+          className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[1000] w-12 h-12 md:w-14 md:h-14 bg-primary text-primary-foreground rounded-full shadow-md flex items-center justify-center hover:bg-primary/90 transition-colors border border-border"
         >
-          <Music size={28} />
+          <Music size={24} />
         </button>
       )}
     </div>

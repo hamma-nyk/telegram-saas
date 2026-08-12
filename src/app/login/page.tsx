@@ -19,7 +19,18 @@ export default function LoginPage() {
     }
   }, [status, router]);
 
-  if (status === "loading") return <p>Checking session...</p>;
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+          <p className="text-sm font-medium text-muted-foreground animate-pulse tracking-widest uppercase">
+            Memuat...
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,38 +63,41 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 text-gray-800">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold mb-2">Selamat Datang</h1>
-          <p className="text-gray-500 text-sm">Masuk untuk mengelola Telegram Bot Anda</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-foreground">
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold tracking-tight">Naocloud</h1>
+      </div>
+      <div className="bg-card p-8 rounded-lg shadow-sm border border-border w-full max-w-sm">
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-semibold tracking-tight mb-1">Welcome back</h2>
+          <p className="text-muted-foreground text-sm">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Username</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-              placeholder="Masukkan username"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder="Enter your username"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Password</label>
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-              placeholder="Masukkan password"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder="Enter your password"
             />
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
+            <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md font-medium">
               {error}
             </div>
           )}
@@ -91,16 +105,16 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
           >
-            {loading ? "Memeriksa..." : "Masuk"}
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-500">
-          Belum punya akun?{" "}
-          <Link href="/register" className="text-black font-medium hover:underline">
-            Daftar sekarang
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Don't have an account?{" "}
+          <Link href="/register" className="font-medium text-primary hover:underline underline-offset-4">
+            Sign up
           </Link>
         </p>
       </div>

@@ -175,10 +175,10 @@ export default function MusicManager({ setPlayerState }: any) {
 
   if (activeChannel) {
     return (
-      <div className="rounded-[2.5rem] bg-white p-8 border border-gray-100 shadow-sm min-h-[500px]">
+      <div className="rounded-lg bg-card p-6 border border-border min-h-[500px]">
         <button
           onClick={() => setActiveChannel(null)}
-          className="group flex items-center gap-2 text-sm font-bold text-purple-600 mb-6 hover:text-purple-800 transition-all"
+          className="group flex items-center gap-2 text-sm font-medium text-foreground mb-6 hover:opacity-80 transition-all"
         >
           <ArrowLeft
             size={16}
@@ -187,28 +187,28 @@ export default function MusicManager({ setPlayerState }: any) {
           Kembali ke Koleksi
         </button>
 
-        <div className="flex items-center gap-5 mb-8">
-          <div className="w-16 h-16 bg-purple-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-purple-100 relative overflow-hidden">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-10 h-10 bg-secondary rounded-md flex items-center justify-center text-secondary-foreground">
             <Disc
-              size={32}
-              className={`${isLoading ? "animate-spin" : "animate-spin-slow"}`}
+              size={20}
+              className={`${isLoading ? "animate-spin" : ""}`}
             />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+            <h2 className="text-xl font-semibold text-foreground">
               {activeChannel.title}
             </h2>
             <div className="flex items-center gap-2 mt-1">
-              <span className="flex h-2 w-2 rounded-full bg-purple-400 animate-pulse"></span>
-              <p className="text-[10px] text-purple-400 uppercase font-black tracking-[0.2em]">
+              <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+              <p className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
                 Streaming Mode Active
               </p>
             </div>
           </div>
         </div>
 
-        {/* Form Upload tetap sama */}
-        <div className="mb-10 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+        {/* Form Upload */}
+        <div className="mb-10 bg-background p-4 rounded-lg border border-border">
           <form
             onSubmit={handleUploadMusic}
             className="flex flex-col md:flex-row gap-4 items-center"
@@ -220,8 +220,8 @@ export default function MusicManager({ setPlayerState }: any) {
                 onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
               />
-              <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-5 py-3.5 text-sm text-slate-500 group-hover:border-purple-300 transition-all">
-                <Upload size={18} className="text-purple-600" />
+              <div className="flex items-center gap-3 bg-background border border-input rounded-md px-3 py-2 text-sm text-muted-foreground">
+                <Upload size={16} />
                 <span className="truncate">
                   {uploadFile ? uploadFile.name : "Pilih file musik..."}
                 </span>
@@ -230,12 +230,12 @@ export default function MusicManager({ setPlayerState }: any) {
             <button
               type="submit"
               disabled={isUploading || !uploadFile}
-              className="w-full md:w-auto bg-purple-600 text-white px-10 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-100 disabled:bg-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="w-full md:w-auto bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
             >
               {isUploading ? (
-                <Loader2 className="animate-spin" size={18} />
+                <Loader2 className="animate-spin" size={16} />
               ) : (
-                <Music2 size={18} />
+                <Music2 size={16} />
               )}
               {isUploading ? "MENGUPLOAD..." : "UNGGAH LAGU"}
             </button>
@@ -246,87 +246,86 @@ export default function MusicManager({ setPlayerState }: any) {
         {isLoading && songs.length === 0 ? (
           <div className="py-24 text-center">
             <Loader2
-              size={48}
-              className="animate-spin text-purple-200 mx-auto mb-4"
+              size={32}
+              className="animate-spin text-muted-foreground mx-auto mb-4"
             />
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+            <p className="text-sm font-medium text-muted-foreground">
               Menghubungkan ke Cloud...
             </p>
           </div>
         ) : songs.length === 0 ? (
-          <div className="py-24 text-center border-2 border-dashed border-slate-100 rounded-[2.5rem]">
-            <Music size={48} className="text-slate-100 mx-auto mb-4" />
-            <p className="font-bold text-slate-300">
+          <div className="py-24 text-center border-2 border-dashed border-border rounded-lg">
+            <Music size={48} className="text-muted-foreground opacity-50 mx-auto mb-4" />
+            <p className="font-medium text-muted-foreground">
               Belum ada lagu di channel ini.
             </p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {songs.map((song: any, index: number) => (
                 <div
                   key={song.id}
-                  className="group bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-2xl hover:shadow-purple-100 hover:border-purple-100 transition-all duration-500 flex flex-col justify-between relative overflow-hidden animate-in fade-in zoom-in duration-500"
+                  className="group bg-card border border-border rounded-lg p-4 hover:bg-accent transition-colors flex flex-col justify-between relative overflow-hidden animate-in fade-in zoom-in duration-500"
                 >
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteMusic(song.id, song.title);
                     }}
-                    className="absolute top-4 right-4 p-2.5 bg-white/90 backdrop-blur-md text-slate-300 hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-20 shadow-sm border border-slate-100"
+                    className="absolute top-2 right-2 p-2 bg-background/90 backdrop-blur-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-20 border border-border"
                   >
                     <Trash2 size={16} />
                   </button>
                   <div className="flex flex-col items-center relative">
-                    <div className="w-full aspect-square bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-slate-200 group-hover:bg-purple-600 group-hover:text-white transition-all duration-700 mb-5 shadow-inner">
+                    <div className="w-full aspect-square bg-secondary rounded-md flex items-center justify-center text-secondary-foreground mb-4">
                       <Music
-                        size={48}
+                        size={32}
                         strokeWidth={1.5}
-                        className="group-hover:scale-110 transition-transform"
                       />
                     </div>
                     <div className="w-full text-center px-1">
-                      <h4 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] mb-1 group-hover:text-purple-600 transition-colors">
+                      <h4 className="text-sm font-medium text-foreground line-clamp-2 min-h-[40px] mb-1">
                         {song.title}
                       </h4>
-                      <div className="inline-block text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-lg group-hover:bg-purple-50 group-hover:text-purple-400">
+                      <div className="inline-block text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded">
                         {song.size}
                       </div>
                     </div>
                   </div>
-                  <div className="mt-6">
+                  <div className="mt-4">
                     <button
                       onClick={() => handlePlay(index)}
-                      className="w-full flex items-center justify-center gap-3 bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-600 shadow-xl shadow-slate-100 hover:shadow-purple-200 transition-all active:scale-95"
+                      className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2 rounded-md text-xs font-medium hover:opacity-90 transition-opacity"
                     >
-                      <Play size={14} fill="currentColor" /> Play Now
+                      <Play size={14} fill="currentColor" /> Play
                     </button>
                   </div>
                 </div>
               ))}
             </div>
             {/* 🔥 TOMBOL LOAD MORE */}
-            <div className="w-full flex flex-col items-center justify-center mt-12 mb-6">
+            <div className="w-full flex flex-col items-center justify-center mt-8 mb-4">
               {hasMore && songs.length > 0 ? (
-                <div className="flex justify-center py-12">
+                <div className="flex justify-center py-8">
                   <button
                     onClick={() => loadMusic(activeChannel, true)}
                     disabled={isLoadingMore}
-                    className="flex items-center gap-3 bg-white border-2 border-purple-600 text-purple-600 px-12 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all shadow-xl shadow-purple-100 active:scale-95 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-secondary text-secondary-foreground px-6 py-2 rounded-md font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
                     {isLoadingMore ? (
-                      <Loader2 size={24} className="animate-spin" />
+                      <Loader2 size={16} className="animate-spin" />
                     ) : (
-                      <Plus size={24} />
+                      <Plus size={16} />
                     )}
                     {isLoadingMore ? "Menarik Data..." : "MUAT LEBIH BANYAK"}
                   </button>
                 </div>
               ) : (
                 songs.length > 0 && (
-                  <div className="py-4 px-8 bg-gray-50 rounded-full border border-gray-100">
-                    <p className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">
-                      Operasi Selesai - Semua Musik Dimuat
+                  <div className="py-2 px-4 bg-muted rounded-md">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Semua Musik Dimuat
                     </p>
                   </div>
                 )
@@ -341,46 +340,46 @@ export default function MusicManager({ setPlayerState }: any) {
   // ... (LIST MODE: DAFTAR CHANNEL & MODAL tetap sama sesuai kode awal Anda)
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center rounded-[2.5rem] bg-white p-8 border border-gray-100 shadow-sm">
+      <div className="flex justify-between items-center rounded-lg bg-card p-6 border border-border">
         <div>
-          <h3 className="text-xl font-black text-slate-900 flex items-center gap-2 tracking-tight">
-            <Music2 size={24} className="text-purple-600" /> KOLEKSI MUSIK
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Music2 size={20} className="text-primary" /> Koleksi Musik
           </h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Cloud Streaming System
           </p>
         </div>
         <button
           onClick={openAddModal}
-          className="rounded-2xl bg-purple-600 px-6 py-3.5 text-xs font-black text-white hover:bg-slate-900 transition-all shadow-xl shadow-purple-100 flex items-center gap-2 uppercase tracking-widest"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition flex items-center gap-2"
         >
-          <Plus size={18} /> Tambah Channel
+          <Plus size={16} /> Tambah Channel
         </button>
       </div>
 
       {savedMusicChannels.length === 0 ? (
-        <div className="text-center py-24 bg-white border border-gray-100 shadow-sm rounded-[2.5rem]">
-          <Disc size={64} className="mx-auto text-slate-50 mb-4" />
-          <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">
+        <div className="text-center py-24 bg-card border border-border rounded-lg">
+          <Disc size={48} className="mx-auto text-muted-foreground mb-4 opacity-50" />
+          <p className="text-sm font-medium text-muted-foreground">
             Belum ada koleksi musik.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {savedMusicChannels.map((ch) => (
             <div
               key={ch.id}
               onClick={() => loadMusic(ch)}
-              className="group cursor-pointer rounded-[2.5rem] bg-white p-8 border border-gray-100 shadow-sm hover:border-purple-400 hover:shadow-2xl hover:shadow-purple-50 transition-all flex items-center gap-6"
+              className="group cursor-pointer rounded-lg bg-card p-4 border border-border hover:bg-accent transition-colors flex items-center gap-4"
             >
-              <div className="w-16 h-16 rounded-[1.5rem] bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-inner">
-                <Music size={32} />
+              <div className="w-12 h-12 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center">
+                <Music size={24} />
               </div>
               <div className="overflow-hidden">
-                <h4 className="text-lg font-bold text-slate-900 truncate group-hover:text-purple-600 transition-colors">
+                <h4 className="text-base font-medium text-foreground truncate group-hover:text-primary transition-colors">
                   {ch.title}
                 </h4>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Buka Playlist Telegram
                 </p>
               </div>
@@ -391,68 +390,68 @@ export default function MusicManager({ setPlayerState }: any) {
 
       {/* MODAL SEARCH & ADD */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-xl p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-card rounded-lg border border-border shadow-lg overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-border flex justify-between items-center">
               <div>
-                <h3 className="font-black text-xl tracking-tight italic">
-                  CARI CHANNEL
+                <h3 className="font-semibold text-lg">
+                  Cari Channel
                 </h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <p className="text-sm text-muted-foreground">
                   Source Selector
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all shadow-sm"
+                className="w-8 h-8 rounded-md bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
               >
-                <X size={20} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="p-6 bg-white border-b border-slate-50">
+            <div className="p-4 border-b border-border">
               <div className="relative group">
                 <Search
-                  size={18}
-                  className="absolute left-5 top-4 text-slate-300 group-focus-within:text-purple-600 transition-colors"
+                  size={16}
+                  className="absolute left-3 top-3 text-muted-foreground"
                 />
                 <input
                   type="text"
                   placeholder="Ketik nama channel..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-[1.5rem] border border-slate-100 bg-slate-50 py-4 pl-14 pr-6 text-sm focus:ring-4 focus:ring-purple-500/10 focus:border-purple-600 outline-none transition-all"
+                  className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 bg-muted/20 custom-scrollbar">
               {isLoadingList ? (
                 <div className="py-20 text-center">
                   <Loader2
-                    size={40}
-                    className="animate-spin text-purple-600 mx-auto mb-4"
+                    size={32}
+                    className="animate-spin text-muted-foreground mx-auto mb-4"
                   />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">
+                  <p className="text-sm font-medium text-muted-foreground">
                     Syncing with Telegram...
                   </p>
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="text-center py-20">
                   <AlertCircle
-                    size={48}
-                    className="text-slate-100 mx-auto mb-4"
+                    size={32}
+                    className="text-muted-foreground mx-auto mb-4 opacity-50"
                   />
-                  <p className="text-sm font-bold text-slate-300 italic">
+                  <p className="text-sm font-medium text-muted-foreground">
                     Channel tidak ditemukan.
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-3">
+                <div className="grid gap-2">
                   {filtered.map((c) => (
                     <label
                       key={c.id}
-                      className="group flex items-center gap-4 p-5 rounded-[1.5rem] bg-white border border-slate-100 hover:border-purple-200 cursor-pointer transition-all shadow-sm"
+                      className="group flex items-center gap-3 p-3 rounded-md bg-card border border-border hover:bg-accent cursor-pointer transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -464,9 +463,9 @@ export default function MusicManager({ setPlayerState }: any) {
                               : [...prev, c.id],
                           )
                         }
-                        className="w-6 h-6 rounded-lg text-purple-600 border-slate-200 focus:ring-purple-500/20"
+                        className="w-4 h-4 rounded text-primary border-input focus:ring-primary"
                       />
-                      <span className="font-bold text-sm text-slate-700 truncate group-hover:text-purple-600">
+                      <span className="font-medium text-sm text-foreground truncate group-hover:text-primary">
                         {c.title}
                       </span>
                     </label>
@@ -475,10 +474,10 @@ export default function MusicManager({ setPlayerState }: any) {
               )}
             </div>
 
-            <div className="p-8 bg-white border-t border-slate-50">
+            <div className="p-4 bg-card border-t border-border">
               <button
                 onClick={saveMusicChannels}
-                className="w-full bg-slate-900 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-slate-200 hover:bg-purple-600 hover:shadow-purple-200 transition-all active:scale-[0.98] text-[10px] uppercase tracking-[0.2em]"
+                className="w-full bg-primary text-primary-foreground font-medium py-2 rounded-md hover:opacity-90 transition-opacity text-sm"
               >
                 SIMPAN CHANNEL MUSIK
               </button>

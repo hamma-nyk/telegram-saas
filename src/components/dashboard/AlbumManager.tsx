@@ -226,7 +226,7 @@ export default function AlbumManager() {
   // ===============================================
   if (activeAlbum) {
     return (
-      <div className="rounded-3xl bg-white p-8 border border-gray-100 shadow-sm min-h-[500px] relative">
+      <div className="rounded-lg bg-card p-6 border border-border text-foreground min-h-[500px] relative">
         <button
           onClick={() => {
             // 🔥 Hentikan loading saat komandan menekan kembali
@@ -235,7 +235,7 @@ export default function AlbumManager() {
             }
             setActiveAlbum(null);
           }}
-          className="flex items-center gap-2 text-sm font-bold text-blue-600 mb-6 hover:text-blue-800 transition group"
+          className="flex items-center gap-2 text-sm font-medium mb-6 hover:opacity-80 transition group"
         >
           <ArrowLeft
             size={16}
@@ -245,12 +245,12 @@ export default function AlbumManager() {
         </button>
 
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 shadow-inner">
-            <ImageIcon size={24} />
+          <div className="w-10 h-10 bg-secondary rounded-md flex items-center justify-center text-secondary-foreground">
+            <ImageIcon size={20} />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold">{activeAlbum.title}</h2>
-            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mt-1">
+            <h2 className="text-xl font-semibold">{activeAlbum.title}</h2>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
               ID: {activeAlbum.id}
             </p>
           </div>
@@ -259,7 +259,7 @@ export default function AlbumManager() {
         {/* Form Upload */}
         <form
           onSubmit={handleUpload}
-          className="mb-10 flex flex-col md:flex-row gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 items-center shadow-sm"
+          className="mb-10 flex flex-col md:flex-row gap-4 bg-background p-4 rounded-lg border border-border items-center"
         >
           <div className="flex-1 w-full relative">
             <input
@@ -269,8 +269,8 @@ export default function AlbumManager() {
               className="absolute inset-0 opacity-0 cursor-pointer z-10"
               required
             />
-            <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-500">
-              <Upload size={16} className="text-blue-600" />
+            <div className="flex items-center gap-3 bg-background border border-input rounded-md px-3 py-2 text-sm text-muted-foreground">
+              <Upload size={16} />
               {uploadFile ? uploadFile.name : "Pilih foto/video..."}
             </div>
           </div>
@@ -279,17 +279,17 @@ export default function AlbumManager() {
             value={uploadCaption}
             onChange={(e) => setUploadCaption(e.target.value)}
             placeholder="Tulis caption (Opsional)..."
-            className="w-full rounded-xl border border-gray-200 p-3 text-sm flex-1 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={isUploading || !uploadFile}
-            className="w-full md:w-auto bg-blue-600 text-white px-8 py-3 rounded-xl text-sm font-bold hover:bg-blue-700 disabled:bg-blue-300 transition shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
+            className="w-full md:w-auto bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
             {isUploading ? (
-              <Loader2 size={18} className="animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             ) : (
-              <ImageIcon size={18} />
+              <ImageIcon size={16} />
             )}
             {isUploading ? "MENGUPLOAD..." : "UPLOAD"}
           </button>
@@ -297,15 +297,15 @@ export default function AlbumManager() {
 
         {isLoadingPhotos && photos.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24">
-            <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
-            <p className="font-bold text-gray-400">
+            <Loader2 size={32} className="animate-spin text-muted-foreground mb-4" />
+            <p className="font-medium text-muted-foreground">
               Menarik media dari Telegram...
             </p>
           </div>
         ) : photos.length === 0 ? (
-          <div className="text-center py-20 border-2 border-dashed border-gray-100 rounded-3xl">
-            <ImageIcon size={48} className="mx-auto text-gray-200 mb-4" />
-            <p className="font-bold text-gray-400">
+          <div className="text-center py-20 border-2 border-dashed border-border rounded-lg">
+            <ImageIcon size={48} className="mx-auto text-muted-foreground mb-4 opacity-50" />
+            <p className="font-medium text-muted-foreground">
               Belum ada foto di album ini.
             </p>
           </div>
@@ -320,7 +320,7 @@ export default function AlbumManager() {
                 return (
                   <div
                     key={`container-${p.id}-${index}`}
-                    className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm relative group aspect-square animate-in fade-in zoom-in duration-500"
+                    className="rounded-lg overflow-hidden bg-background border border-border relative group aspect-square animate-in fade-in zoom-in duration-500"
                   >
                     {isVideo ? (
                       <div className="relative w-full h-full bg-black">
@@ -330,7 +330,7 @@ export default function AlbumManager() {
                           preload="metadata"
                         />
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+                          <div className="w-12 h-12 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white">
                             <Play size={24} fill="currentColor" />
                           </div>
                         </div>
@@ -351,31 +351,31 @@ export default function AlbumManager() {
                             target.src = `${p.url}&retry=1`;
                           }
                         }}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     )}
 
-                    <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                    <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                       <button
                         onClick={() =>
                           isVideo
                             ? setFullscreenVideo(p.url)
                             : setFullscreenImage(p.url)
                         }
-                        className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 hover:text-white transition-all transform hover:scale-110"
+                        className="w-8 h-8 bg-background/90 backdrop-blur-sm rounded-md flex items-center justify-center text-foreground hover:bg-secondary transition-colors"
                       >
-                        <Maximize2 size={18} />
+                        <Maximize2 size={16} />
                       </button>
                       <button
                         onClick={() => handleSoftDelete(p.id, p.caption)}
-                        className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 hover:text-white transition-all transform hover:scale-110"
+                        className="w-8 h-8 bg-background/90 backdrop-blur-sm rounded-md flex items-center justify-center text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12 text-white pointer-events-none">
-                      <p className="text-xs font-bold leading-relaxed truncate">
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 text-white pointer-events-none">
+                      <p className="text-xs font-medium truncate">
                         {cleanCaption || "-"}
                       </p>
                     </div>
@@ -389,20 +389,20 @@ export default function AlbumManager() {
                 <button
                   onClick={() => openAlbum(activeAlbum, true)}
                   disabled={isLoadingMore}
-                  className="flex items-center gap-3 bg-white border-2 border-blue-600 text-blue-600 px-12 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl shadow-blue-100 active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-2 bg-secondary text-secondary-foreground px-6 py-2 rounded-md font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {isLoadingMore ? (
-                    <Loader2 size={24} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    <Plus size={24} />
+                    <Plus size={16} />
                   )}
                   {isLoadingMore ? "Menarik Data..." : "MUAT LEBIH BANYAK"}
                 </button>
               ) : (
                 photos.length > 0 && (
-                  <div className="py-4 px-8 bg-gray-50 rounded-full border border-gray-100">
-                    <p className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">
-                      Operasi Selesai - Semua Foto Dimuat
+                  <div className="py-2 px-4 bg-muted rounded-md">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Semua media dimuat
                     </p>
                   </div>
                 )
@@ -413,16 +413,16 @@ export default function AlbumManager() {
 
         {/* Modal Fullscreen Image */}
         {fullscreenImage && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 p-4 backdrop-blur-sm animate-in fade-in duration-200">
             <button
               onClick={() => setFullscreenImage(null)}
-              className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full text-white hover:bg-red-600 transition flex items-center justify-center"
+              className="absolute top-4 right-4 w-10 h-10 bg-secondary rounded-md text-secondary-foreground hover:opacity-80 transition flex items-center justify-center"
             >
-              <X size={24} />
+              <X size={20} />
             </button>
             <img
               src={fullscreenImage}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              className="max-w-full max-h-[90vh] object-contain rounded-md"
               alt="Fullscreen Media"
             />
           </div>
@@ -430,18 +430,18 @@ export default function AlbumManager() {
 
         {/* Modal Fullscreen Video */}
         {fullscreenVideo && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/95 p-4 backdrop-blur-sm animate-in fade-in duration-200">
             <button
               onClick={() => setFullscreenVideo(null)}
-              className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full text-white hover:bg-red-600 transition flex items-center justify-center z-50"
+              className="absolute top-4 right-4 w-10 h-10 bg-secondary rounded-md text-secondary-foreground hover:opacity-80 transition flex items-center justify-center z-50"
             >
-              <X size={24} />
+              <X size={20} />
             </button>
             <video
               src={fullscreenVideo}
               controls
               autoPlay
-              className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+              className="max-w-full max-h-[90vh] rounded-md"
             />
           </div>
         )}
@@ -454,46 +454,46 @@ export default function AlbumManager() {
   // ===============================================
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center rounded-3xl bg-white p-6 border border-gray-100 shadow-sm">
+      <div className="flex justify-between items-center rounded-lg bg-card p-6 border border-border">
         <div>
-          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
             Album Tersimpan
           </h3>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-muted-foreground mt-1">
             Daftar channel yang dijadikan album foto.
           </p>
         </div>
         <button
           onClick={openAddModal}
-          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition shadow-lg shadow-blue-100 flex items-center gap-2"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition flex items-center gap-2"
         >
-          <Plus size={18} /> Tambah Album
+          <Plus size={16} /> Tambah Album
         </button>
       </div>
 
       {savedAlbums.length === 0 ? (
-        <div className="text-center py-24 bg-white border border-gray-100 shadow-sm rounded-3xl">
-          <Album size={64} className="mx-auto text-gray-100 mb-4" />
-          <p className="font-bold text-gray-400 uppercase tracking-widest text-xs">
+        <div className="text-center py-24 bg-card border border-border rounded-lg">
+          <Album size={48} className="mx-auto text-muted-foreground mb-4 opacity-50" />
+          <p className="font-medium text-muted-foreground uppercase tracking-widest text-xs">
             Belum ada album ditambahkan.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {savedAlbums.map((album) => (
             <div
               key={album.id}
               onClick={() => openAlbum(album)}
-              className="group cursor-pointer rounded-3xl bg-white p-6 border border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-xl hover:shadow-blue-50 transition-all flex items-center gap-4"
+              className="group cursor-pointer rounded-lg bg-card p-4 border border-border hover:bg-accent transition-colors flex items-center gap-4"
             >
-              <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
-                <FolderOpen size={28} />
+              <div className="w-12 h-12 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center">
+                <FolderOpen size={24} />
               </div>
               <div className="overflow-hidden">
-                <h4 className="font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                <h4 className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
                   {album.title}
                 </h4>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Ketuk untuk buka galeri
                 </p>
               </div>
@@ -504,58 +504,54 @@ export default function AlbumManager() {
 
       {/* Modal Add Album */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-card rounded-lg border border-border shadow-lg overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-border flex justify-between items-center">
               <div>
-                <h3 className="font-black text-xl tracking-tight">
-                  Pilih Channel
-                </h3>
-                <p className="text-xs font-bold text-gray-400 uppercase">
-                  Telegram Source
-                </p>
+                <h3 className="font-semibold text-lg">Pilih Channel</h3>
+                <p className="text-sm text-muted-foreground">Telegram Source</p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-100 transition-all"
+                className="w-8 h-8 rounded-md bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
               >
-                <X size={20} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="px-8 py-5 bg-white border-b border-gray-100">
+            <div className="p-4 border-b border-border">
               <div className="relative group">
                 <Search
-                  size={18}
-                  className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-blue-600 transition-colors"
+                  size={16}
+                  className="absolute left-3 top-3 text-muted-foreground"
                 />
                 <input
                   type="text"
                   placeholder="Cari nama channel..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-100 bg-gray-50 py-3.5 pl-11 pr-4 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                  className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+            <div className="flex-1 overflow-y-auto p-4 bg-muted/20">
               {isLoadingChannels ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <Loader2
-                    size={40}
-                    className="animate-spin text-blue-600 mb-4"
+                    size={32}
+                    className="animate-spin text-muted-foreground mb-4"
                   />
-                  <p className="text-xs font-black text-blue-600 animate-pulse uppercase tracking-[0.2em]">
+                  <p className="text-sm font-medium text-muted-foreground">
                     Menyedot channel...
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {filteredChannels.map((c) => (
                     <label
                       key={c.id}
-                      className="group flex items-center gap-4 p-4 rounded-2xl bg-white hover:bg-blue-50/50 cursor-pointer border border-gray-100 transition-all shadow-sm"
+                      className="group flex items-center gap-3 p-3 rounded-md bg-card hover:bg-accent cursor-pointer border border-border transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -567,13 +563,13 @@ export default function AlbumManager() {
                               : [...prev, c.id],
                           )
                         }
-                        className="w-6 h-6 rounded-lg border-gray-200 text-blue-600 cursor-pointer"
+                        className="w-4 h-4 rounded border-input text-primary focus:ring-primary"
                       />
                       <div className="overflow-hidden">
-                        <p className="font-bold text-sm text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        <p className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">
                           {c.title}
                         </p>
-                        <p className="text-[10px] font-black text-gray-400 truncate mt-0.5 opacity-70">
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
                           ID: {c.id}
                         </p>
                       </div>
@@ -583,11 +579,11 @@ export default function AlbumManager() {
               )}
             </div>
 
-            <div className="p-8 border-t border-gray-100 bg-white">
+            <div className="p-4 border-t border-border bg-card">
               <button
                 onClick={saveAlbums}
                 disabled={isLoadingChannels}
-                className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-600 transition-all uppercase tracking-widest text-xs"
+                className="w-full bg-primary text-primary-foreground font-medium py-2 rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
               >
                 SIMPAN ALBUM TERPILIH
               </button>

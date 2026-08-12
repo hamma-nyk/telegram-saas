@@ -24,7 +24,8 @@ export const authOptions: NextAuthOptions = {
           return { 
             id: user._id.toString(), 
             name: user.username, 
-            telegramConnected: user.telegramConnected 
+            telegramConnected: user.telegramConnected,
+            telegramSession: user.telegramSession,
           };
         } catch (error) {
           return null;
@@ -40,19 +41,22 @@ export const authOptions: NextAuthOptions = {
         const freshUser = await User.findById(token.id);
         if (freshUser) {
           token.telegramConnected = freshUser.telegramConnected;
+          token.telegramSession = freshUser.telegramSession;
         }
       }
       
       if (user) {
         token.id = user.id;
-        token.telegramConnected = user.telegramConnected;
+        token.telegramConnected = (user as any).telegramConnected;
+        token.telegramSession = (user as any).telegramSession;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.telegramConnected = token.telegramConnected as boolean;
+        (session.user as any).telegramConnected = token.telegramConnected as boolean;
+        (session.user as any).telegramSession = token.telegramSession as string | undefined;
       }
       return session;
     },
