@@ -4,6 +4,36 @@
  */
 
 import { TelegramClient, Api } from "telegram";
+import { StringSession } from "telegram/sessions";
+
+/**
+ * dY"S Bot Client untuk notifikasi admin (Lupa Password)
+ */
+let botClientInstance: TelegramClient | null = null;
+export async function getBotClient(): Promise<TelegramClient> {
+  if (botClientInstance && botClientInstance.connected) {
+    return botClientInstance;
+  }
+
+  const apiId = Number(process.env.TELEGRAM_API_ID);
+  const apiHash = process.env.TELEGRAM_API_HASH as string;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN as string;
+
+  if (!apiId || !apiHash || !botToken) {
+    throw new Error("Missing bot credentials (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_BOT_TOKEN)");
+  }
+
+  const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
+    connectionRetries: 5,
+  });
+
+  await client.start({
+    botAuthToken: botToken,
+  });
+
+  botClientInstance = client;
+  return botClientInstance;
+}
 
 /**
  * 🌐 TELEGRAM DATA CENTER INFORMATION

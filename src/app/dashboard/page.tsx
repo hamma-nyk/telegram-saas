@@ -170,7 +170,7 @@ export default function DashboardPage() {
               <Menu size={24} />
             </button>
             <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-              {activeMenu === "auth" && "System Authorization"}
+              {activeMenu === "auth" && "Pengaturan Akun"}
               {activeMenu === "send-msg" && "Quick Message"}
               {activeMenu === "album" && "Cloud Photo Album"}
               {activeMenu === "music" && "Cloud Music Player"}

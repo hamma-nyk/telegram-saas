@@ -74,7 +74,7 @@ export default function Sidebar({
                 : "text-muted-foreground group-hover:text-accent-foreground"
             }
           />
-          <span>Status & Koneksi</span>
+          <span>Akun & Telegram</span>
           {isConnected && (
             <span className="ml-auto flex h-2 w-2">
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>

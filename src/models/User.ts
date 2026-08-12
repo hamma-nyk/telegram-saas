@@ -10,11 +10,13 @@ export interface IAlbum {
 export interface IUser extends Document {
   username: string;
   password?: string;
+  email: string;
+  phone: string;
   telegramSession?: string | null;
   telegramConnected: boolean;
   temp2FA?: string | null; 
   savedAlbums?: IAlbum[];
-  savedMusicChannels?: IAlbum[]; // <--- TAMBAHKAN INI
+  savedMusicChannels?: IAlbum[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,11 +24,13 @@ export interface IUser extends Document {
 const userSchema: Schema<IUser> = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  phone: { type: String, required: true },
   telegramSession: { type: String, default: null }, 
   telegramConnected: { type: Boolean, default: false },
   temp2FA: { type: String, default: null },
   savedAlbums: { type: Array, default: [] },
-  savedMusicChannels: { type: Array, default: [] }, // <--- TAMBAHKAN INI
+  savedMusicChannels: { type: Array, default: [] },
 }, { 
   timestamps: true,
   collection: 'tb_user' 

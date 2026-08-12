@@ -15,15 +15,29 @@ import {
   bandwidthMonitor, 
   networkMonitor 
 } from "@/lib/telegramUtils";
+import { startBotListener } from "@/lib/bot/listener";
 
 export const dynamic = "force-dynamic";
 
+let isBotRunning = false;
+
 export async function GET() {
+  if (!isBotRunning) {
+    try {
+      startBotListener();
+      isBotRunning = true;
+      console.log("Bot listener started via health endpoint");
+    } catch (e) {
+      console.error("Gagal start bot listener", e);
+    }
+  }
+
   try {
     const dbHealth = await checkDatabaseHealth();
 
     const health = {
       status: "healthy",
+      botRunning: isBotRunning,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: {
@@ -59,6 +73,7 @@ export async function GET() {
     return NextResponse.json(
       {
         status: "unhealthy",
+        botRunning: isBotRunning,
         error: error.message,
         timestamp: new Date().toISOString(),
       },
